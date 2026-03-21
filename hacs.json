@@ -1,0 +1,7 @@
+{
+  "name": "Dolphin Diabetes Card",
+  "description": "A sleek Home Assistant Dashboard card for displaying blood glucose levels, trend direction, and a historical graph.",
+  "render_readme": true,
+  "filename": "dolphin-diabetes-card.js",
+  "content_in_root": true
+}
