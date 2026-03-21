@@ -11,6 +11,8 @@ class DolphinDiabetesCard extends HTMLElement {
     this._historyFetching = false;
     this._longPressTimer = null;
     this._longPressFired = false;
+    this._popupOverlay = null;
+    this._popupHours = 3;
   }
 
   static getConfigElement() {
@@ -24,8 +26,6 @@ class DolphinDiabetesCard extends HTMLElement {
       unit: 'mmol',
       show_graph: true,
       graph_hours: 3,
-      low_threshold: 3.9,
-      high_threshold: 10.0,
       accent_color: '#007AFF',
       low_color: '#FF3B30',
       high_color: '#FF9500',
@@ -45,8 +45,6 @@ class DolphinDiabetesCard extends HTMLElement {
       unit: 'mmol',
       show_graph: true,
       graph_hours: 3,
-      low_threshold: 3.9,
-      high_threshold: 10.0,
       accent_color: '#007AFF',
       low_color: '#FF3B30',
       high_color: '#FF9500',
@@ -82,28 +80,31 @@ class DolphinDiabetesCard extends HTMLElement {
   _formatGlucose(val) {
     const n = parseFloat(val);
     if (isNaN(n)) return '--';
-    if (this._config.unit === 'mgdl') return Math.round(n).toString();
-    return n.toFixed(1);
+    return this._config.unit === 'mgdl' ? Math.round(n).toString() : n.toFixed(1);
   }
 
   _unitLabel() {
-    // Return exactly as configured by the user - no forced case
     return this._config.unit === 'mgdl' ? 'mg/dL' : 'mmol/L';
   }
 
   _getStatusColor(val) {
     const n = parseFloat(val);
     if (isNaN(n)) return this._config.accent_color;
-    if (n < parseFloat(this._config.low_threshold))  return this._config.low_color;
-    if (n > parseFloat(this._config.high_threshold)) return this._config.high_color;
+    // Use fixed clinical thresholds for colour only — not configurable
+    const lo = this._config.unit === 'mgdl' ? 70  : 3.9;
+    const hi = this._config.unit === 'mgdl' ? 180 : 10.0;
+    if (n < lo) return this._config.low_color;
+    if (n > hi) return this._config.high_color;
     return this._config.normal_color;
   }
 
   _getStatusLabel(val) {
     const n = parseFloat(val);
     if (isNaN(n)) return 'Unknown';
-    if (n < parseFloat(this._config.low_threshold))  return 'Low';
-    if (n > parseFloat(this._config.high_threshold)) return 'High';
+    const lo = this._config.unit === 'mgdl' ? 70  : 3.9;
+    const hi = this._config.unit === 'mgdl' ? 180 : 10.0;
+    if (n < lo) return 'Low';
+    if (n > hi) return 'High';
     return 'In Range';
   }
 
@@ -111,19 +112,19 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!trend) return null;
     const t = trend.toString().toLowerCase();
     const make = (deg, label) => ({ deg, label });
-    if ((t.includes('double') && t.includes('up'))   || t === 'doubleup')      return make(0,   'Rising Fast');
-    if ((t.includes('single') && t.includes('up'))   || t === 'singleup')      return make(45,  'Rising');
-    if ((t.includes('fortyfive') && t.includes('up'))|| t === 'fortyfiveup')   return make(67,  'Rising Slightly');
-    if (t.includes('rising_quickly') || t === 'up_fast')                        return make(0,   'Rising Fast');
-    if (t.includes('rising_slightly')|| t === 'up_slight')                      return make(67,  'Rising Slightly');
-    if (t.includes('rising')         || t === 'up')                             return make(45,  'Rising');
-    if (t.includes('flat')           || t === 'steady')                         return make(90,  'Steady');
+    if ((t.includes('double') && t.includes('up'))    || t === 'doubleup')       return make(0,   'Rising Fast');
+    if (t.includes('rising_quickly')                  || t === 'up_fast')        return make(0,   'Rising Fast');
+    if ((t.includes('single') && t.includes('up'))    || t === 'singleup')       return make(45,  'Rising');
+    if (t.includes('rising_slightly')                 || t === 'up_slight')      return make(67,  'Rising Slightly');
+    if ((t.includes('fortyfive') && t.includes('up')) || t === 'fortyfiveup')    return make(67,  'Rising Slightly');
+    if (t.includes('rising')                          || t === 'up')             return make(45,  'Rising');
+    if (t.includes('flat')                            || t === 'steady')         return make(90,  'Steady');
     if ((t.includes('fortyfive') && t.includes('down'))|| t === 'fortyfivedown') return make(113, 'Falling Slightly');
-    if (t.includes('falling_slightly')|| t === 'down_slight')                   return make(113, 'Falling Slightly');
-    if ((t.includes('single') && t.includes('down')) || t === 'singledown')    return make(135, 'Falling');
-    if (t.includes('falling_quickly') || t === 'down_fast')                     return make(180, 'Falling Fast');
-    if ((t.includes('double') && t.includes('down')) || t === 'doubledown')    return make(180, 'Falling Fast');
-    if (t.includes('falling')        || t === 'down')                           return make(135, 'Falling');
+    if (t.includes('falling_slightly')                || t === 'down_slight')    return make(113, 'Falling Slightly');
+    if ((t.includes('single') && t.includes('down'))  || t === 'singledown')    return make(135, 'Falling');
+    if (t.includes('falling_quickly')                 || t === 'down_fast')      return make(180, 'Falling Fast');
+    if ((t.includes('double') && t.includes('down'))  || t === 'doubledown')    return make(180, 'Falling Fast');
+    if (t.includes('falling')                         || t === 'down')           return make(135, 'Falling');
     return null;
   }
 
@@ -135,19 +136,19 @@ class DolphinDiabetesCard extends HTMLElement {
     }
     const W = 400;
     const H = popupMode ? 160 : 100;
-    const pad = { top: 10, right: 10, bottom: 20, left: 34 };
+    const pad = { top: 10, right: 10, bottom: 20, left: 10 };
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
 
-    const lo = parseFloat(this._config.low_threshold);
-    const hi = parseFloat(this._config.high_threshold);
-    const lineColor  = this._config.graph_line_color;
-    const fillColor  = this._config.graph_fill_color;
+    const lo = this._config.unit === 'mgdl' ? 70  : 3.9;
+    const hi = this._config.unit === 'mgdl' ? 180 : 10.0;
+    const lineColor = this._config.graph_line_color;
+    const fillColor = this._config.graph_fill_color;
 
     const rawMin = Math.min(...glucoseValues);
     const rawMax = Math.max(...glucoseValues);
     const padding = (rawMax - rawMin) * 0.15 || 1;
-    const min = Math.min(rawMin - padding, lo * 0.9);
+    const min = Math.min(rawMin - padding, lo * 0.85);
     const max = Math.max(rawMax + padding, hi * 1.1);
     const range = max - min;
 
@@ -161,60 +162,44 @@ class DolphinDiabetesCard extends HTMLElement {
     const loYc = clampY(lo);
     const hiYc = clampY(hi);
 
-    const yLabels = [
-      { v: lo, col: this._config.low_color },
-      { v: hi, col: this._config.high_color },
-    ].map(({ v, col }) => {
-      const y = pad.top + plotH - ((v - min) / range) * plotH;
-      if (y < pad.top - 2 || y > pad.top + plotH + 2) return '';
-      const lbl = this._config.unit === 'mgdl' ? Math.round(v) : v.toFixed(1);
-      return `<text x="${pad.left - 4}" y="${y.toFixed(1)}" fill="${col}" fill-opacity="0.6" font-size="8" text-anchor="end" dominant-baseline="middle">${lbl}</text>`;
-    }).join('');
-
     let xLabels = '';
     if (timestamps && timestamps.length >= 2) {
       const fmt = ts => { try { const d = new Date(ts); return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0'); } catch { return ''; } };
       xLabels = `
-        <text x="${pad.left}" y="${H - 3}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="start">${fmt(timestamps[0])}</text>
-        <text x="${W - pad.right}" y="${H - 3}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="end">${fmt(timestamps[timestamps.length - 1])}</text>`;
+        <text x="${pad.left + 2}" y="${H - 4}" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="start">${fmt(timestamps[0])}</text>
+        <text x="${W - pad.right - 2}" y="${H - 4}" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="end">${fmt(timestamps[timestamps.length - 1])}</text>`;
     }
 
     const lastX = xs[xs.length - 1], lastY = ys[ys.length - 1];
     const dotColor = this._getStatusColor(glucoseValues[glucoseValues.length - 1]);
-    const gradId = popupMode ? 'dgFillPopup' : 'dgFill';
+    const gradId = popupMode ? 'dgFillP' : 'dgFillC';
+    const clipId = popupMode ? 'dgClipP' : 'dgClipC';
 
-    // Colour segments — each segment coloured by its value status
+    // Colour-segmented line
     let segments = '';
     for (let i = 1; i < glucoseValues.length; i++) {
-      const midVal = (glucoseValues[i - 1] + glucoseValues[i]) / 2;
-      const segColor = this._getStatusColor(midVal);
-      segments += `<line x1="${xs[i-1].toFixed(1)}" y1="${ys[i-1].toFixed(1)}" x2="${xs[i].toFixed(1)}" y2="${ys[i].toFixed(1)}" stroke="${segColor}" stroke-width="${popupMode ? 2.5 : 2.2}" stroke-linecap="round"/>`;
+      const segColor = this._getStatusColor((glucoseValues[i - 1] + glucoseValues[i]) / 2);
+      segments += `<line x1="${xs[i-1].toFixed(1)}" y1="${ys[i-1].toFixed(1)}" x2="${xs[i].toFixed(1)}" y2="${ys[i].toFixed(1)}" stroke="${segColor}" stroke-width="${popupMode ? 2.5 : 2}" stroke-linecap="round"/>`;
     }
 
     return `
       <svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;display:block;">
         <defs>
           <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${fillColor}" stop-opacity="0.3"/>
+            <stop offset="0%" stop-color="${fillColor}" stop-opacity="0.28"/>
             <stop offset="100%" stop-color="${fillColor}" stop-opacity="0.02"/>
           </linearGradient>
-          <clipPath id="graphClip${popupMode ? 'p' : 'c'}">
+          <clipPath id="${clipId}">
             <rect x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}"/>
           </clipPath>
         </defs>
-        <!-- Threshold bands -->
         <line x1="${pad.left}" y1="${loYc.toFixed(1)}" x2="${W - pad.right}" y2="${loYc.toFixed(1)}"
-          stroke="${this._config.low_color}" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/>
+          stroke="${this._config.low_color}" stroke-width="1" stroke-dasharray="4 4" opacity="0.45"/>
         <line x1="${pad.left}" y1="${hiYc.toFixed(1)}" x2="${W - pad.right}" y2="${hiYc.toFixed(1)}"
-          stroke="${this._config.high_color}" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/>
-        <!-- Fill area -->
-        <path d="${fillPath}" fill="url(#${gradId})" clip-path="url(#graphClip${popupMode ? 'p' : 'c'})"/>
-        <!-- Colour-coded line segments -->
-        <g clip-path="url(#graphClip${popupMode ? 'p' : 'c'})">${segments}</g>
-        <!-- Latest reading dot -->
+          stroke="${this._config.high_color}" stroke-width="1" stroke-dasharray="4 4" opacity="0.45"/>
+        <path d="${fillPath}" fill="url(#${gradId})" clip-path="url(#${clipId})"/>
+        <g clip-path="url(#${clipId})">${segments}</g>
         <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="${popupMode ? 5 : 4}" fill="${dotColor}" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/>
-        <!-- Labels -->
-        ${yLabels}
         ${xLabels}
       </svg>`;
   }
@@ -222,117 +207,198 @@ class DolphinDiabetesCard extends HTMLElement {
   // ── Popup ──────────────────────────────────────────────────────────
 
   _openPopup() {
-    const root = this.shadowRoot;
-    const existing = root.getElementById('dg-popup-overlay');
-    if (existing) return;
+    if (this._popupOverlay) return;
 
     const glucoseState = this._hass?.states[this._config.glucose_entity];
+    const trendState   = this._hass?.states[this._config.trend_entity];
     const glucoseVal   = glucoseState?.state;
+    const trendVal     = trendState?.state || trendState?.attributes?.trend || trendState?.attributes?.trend_description;
+    const lastUpdate   = glucoseState?.last_changed || glucoseState?.last_updated;
     const statusColor  = this._getStatusColor(glucoseVal);
+    const statusLabel  = this._getStatusLabel(glucoseVal);
+    const trendInfo    = this._getTrendInfo(trendVal);
     const cfg          = this._config;
 
-    let bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
+    // Popup hours defaults to card's configured hours
+    this._popupHours = parseInt(cfg.graph_hours) || 3;
+
     const hexBg = cfg.card_bg || '#1c1c1e';
     const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
-    const popupBg = `rgba(${Math.max(0,rr-8)},${Math.max(0,gg-8)},${Math.max(0,bb-8)},${Math.min(1, bgOpacity + 0.1)})`;
+    const bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
+    const popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${Math.min(1, bgOpacity + 0.12)})`;
+
+    // Time ago text
+    let timeAgoStr = '--';
+    if (lastUpdate) {
+      const mins = Math.floor((Date.now() - new Date(lastUpdate).getTime()) / 60000);
+      timeAgoStr = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} mins ago` : `${Math.floor(mins/60)}h ago`;
+    }
+
+    // Trend text for info row
+    const trendText = trendInfo?.label || (trendVal ? trendVal : '—');
 
     const overlay = document.createElement('div');
     overlay.id = 'dg-popup-overlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 9999;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      animation: dgFadeIn 0.22s ease;
-    `;
-
-    const popup = document.createElement('div');
-    popup.style.cssText = `
-      background: ${popupBg};
-      backdrop-filter: blur(40px) saturate(180%);
-      -webkit-backdrop-filter: blur(40px) saturate(180%);
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-      padding: 20px 20px 18px;
-      width: min(360px, 90vw);
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-      color: ${cfg.text_color};
-      animation: dgSlideUp 0.28s cubic-bezier(0.34,1.56,0.64,1);
-    `;
+    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);`;
 
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes dgFadeIn { from { opacity:0; } to { opacity:1; } }
-      @keyframes dgSlideUp { from { transform:translateY(24px) scale(0.96); opacity:0; } to { transform:none; opacity:1; } }
+      @keyframes dgFadeIn { from{opacity:0} to{opacity:1} }
+      @keyframes dgSlideUp { from{transform:translateY(20px) scale(0.97);opacity:0} to{transform:none;opacity:1} }
+      .dg-popup { animation: dgSlideUp 0.26s cubic-bezier(0.34,1.3,0.64,1); }
+      #dg-popup-overlay { animation: dgFadeIn 0.2s ease; }
+      .dg-seg-btn { flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:rgba(255,255,255,0.6);border:none;background:none;transition:all 0.2s;font-family:inherit; }
+      .dg-seg-btn.active { background:${cfg.accent_color};color:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.35); }
+      .dg-seg-btn:not(.active):hover { color:rgba(255,255,255,0.9); }
+      .dg-close-btn:hover { background:rgba(255,255,255,0.22)!important; }
+      .dg-info-row { display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.07); }
+      .dg-info-row:last-child { border-bottom:none; }
+      .dg-info-label { font-size:12px;color:rgba(255,255,255,0.45);font-weight:500; }
+      .dg-info-value { font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);text-align:right; }
     `;
 
-    const header = document.createElement('div');
-    header.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;`;
-    header.innerHTML = `
+    const popup = document.createElement('div');
+    popup.className = 'dg-popup';
+    popup.style.cssText = `background:${popupBg};backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,0.15);border-radius:24px;box-shadow:0 24px 64px rgba(0,0,0,0.65);padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:${cfg.text_color};`;
+
+    // Prevent scroll bleed to background
+    popup.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
+
+    // ── Header row ──
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;';
+    headerRow.innerHTML = `
       <span style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);">${cfg.title || 'Blood Sugar'}</span>
-      <button id="dg-popup-close" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);font-size:16px;line-height:1;padding:0;transition:background 0.15s;">✕</button>
+      <button class="dg-close-btn" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);font-size:15px;line-height:1;padding:0;transition:background 0.15s;flex-shrink:0;">✕</button>
+    `;
+    headerRow.querySelector('.dg-close-btn').addEventListener('click', () => this._closePopup());
+
+    // ── Big reading + trend ──
+    const readingRow = document.createElement('div');
+    readingRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;';
+
+    const readingLeft = document.createElement('div');
+    readingLeft.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:7px;line-height:1;">
+        <span style="font-size:56px;font-weight:700;letter-spacing:-3px;color:${statusColor};">${this._formatGlucose(glucoseVal)}</span>
+        <span style="font-size:15px;color:rgba(255,255,255,0.4);font-weight:500;padding-bottom:6px;">${this._unitLabel()}</span>
+      </div>
+      <div style="margin-top:4px;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.04em;background:${statusColor}25;color:${statusColor};border:1px solid ${statusColor}44;">${statusLabel}</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.35);">${timeAgoStr}</span>
+      </div>
     `;
 
-    const reading = document.createElement('div');
-    reading.style.cssText = `display:flex;align-items:baseline;gap:6px;margin-bottom:14px;`;
-    reading.innerHTML = `
-      <span style="font-size:48px;font-weight:700;letter-spacing:-2px;line-height:1;color:${statusColor};transition:color 0.4s;">${this._formatGlucose(glucoseVal)}</span>
-      <span style="font-size:14px;color:rgba(255,255,255,0.45);font-weight:500;">${this._unitLabel()}</span>
+    const trendRight = document.createElement('div');
+    trendRight.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;';
+
+    // Trend ring (no arrow — just the ring with label)
+    const circ = 2 * Math.PI * 34;
+    const trendPct = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
+    trendRight.innerHTML = `
+      <div style="position:relative;width:72px;height:72px;">
+        <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
+          <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+          <circle cx="44" cy="44" r="34" fill="none" stroke="${statusColor}" stroke-width="5" stroke-linecap="round"
+            style="stroke-dasharray:${circ};stroke-dashoffset:${circ*(1-trendPct)};transform:rotate(-90deg);transform-origin:44px 44px;transition:all 0.5s ease;"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <span style="font-size:10px;font-weight:700;color:${statusColor};letter-spacing:-0.2px;text-align:center;max-width:58px;line-height:1.2;">${trendText}</span>
+        </div>
+      </div>
     `;
 
-    const graphLabel = document.createElement('div');
-    graphLabel.style.cssText = `font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:8px;`;
-    graphLabel.textContent = `${cfg.graph_hours}h history`;
+    readingRow.appendChild(readingLeft);
+    readingRow.appendChild(trendRight);
 
-    const graphWrap = document.createElement('div');
-    graphWrap.style.cssText = `height:120px;position:relative;`;
-    graphWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.2);font-size:12px;">Loading…</div>`;
+    // ── Time range segmented control ──
+    const segWrap = document.createElement('div');
+    segWrap.style.cssText = 'display:flex;background:rgba(118,118,128,0.2);border-radius:10px;padding:3px;gap:2px;margin-bottom:14px;';
+    [1, 3, 6, 12, 24].forEach(h => {
+      const btn = document.createElement('button');
+      btn.className = 'dg-seg-btn' + (h === this._popupHours ? ' active' : '');
+      btn.textContent = h < 24 ? `${h}h` : '24h';
+      btn.dataset.hours = h;
+      btn.addEventListener('click', () => {
+        this._popupHours = h;
+        segWrap.querySelectorAll('.dg-seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.hours) === h));
+        graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+        this._loadGraphInto(graphInner, true, h);
+      });
+      segWrap.appendChild(btn);
+    });
 
+    // ── Graph area ──
+    const graphInner = document.createElement('div');
+    graphInner.style.cssText = 'height:140px;position:relative;margin-bottom:16px;';
+    graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+
+    // ── Info rows ──
+    const infoWrap = document.createElement('div');
+    infoWrap.style.cssText = 'margin-top:4px;';
+
+    const glucoseStateForInfo = this._hass?.states[this._config.glucose_entity];
+    const attrs = glucoseStateForInfo?.attributes || {};
+
+    // Build info rows dynamically — show what's available
+    const rows = [
+      { label: 'Trend', value: trendText },
+      { label: 'Last reading', value: timeAgoStr },
+    ];
+
+    // Common CGM attribute names across Dexcom / Nightscout / xDrip
+    if (attrs.glucose_level !== undefined) rows.push({ label: 'Sensor glucose', value: `${attrs.glucose_level} ${this._unitLabel()}` });
+    if (attrs.delta !== undefined || attrs.glucose_delta !== undefined) {
+      const delta = attrs.delta ?? attrs.glucose_delta;
+      const deltaStr = (parseFloat(delta) >= 0 ? '+' : '') + parseFloat(delta).toFixed(1);
+      rows.push({ label: 'Change', value: `${deltaStr} ${this._unitLabel()}` });
+    }
+    if (attrs.sensor_age !== undefined) rows.push({ label: 'Sensor age', value: attrs.sensor_age });
+    if (attrs.transmitter_id !== undefined) rows.push({ label: 'Transmitter', value: attrs.transmitter_id });
+    if (attrs.battery_level !== undefined || attrs.battery !== undefined) {
+      rows.push({ label: 'Battery', value: `${attrs.battery_level ?? attrs.battery}%` });
+    }
+
+    rows.forEach(({ label, value }) => {
+      const row = document.createElement('div');
+      row.className = 'dg-info-row';
+      row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value">${value}</span>`;
+      infoWrap.appendChild(row);
+    });
+
+    // ── Assemble ──
     popup.appendChild(style);
-    popup.appendChild(header);
-    popup.appendChild(reading);
-    popup.appendChild(graphLabel);
-    popup.appendChild(graphWrap);
+    popup.appendChild(headerRow);
+    popup.appendChild(readingRow);
+    popup.appendChild(segWrap);
+    popup.appendChild(graphInner);
+    popup.appendChild(infoWrap);
     overlay.appendChild(popup);
-
-    // Append to the host element's parent (outside shadow DOM) so it overlays the whole screen
     document.body.appendChild(overlay);
 
-    // Close on overlay click
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) this._closePopup();
-    });
-    header.querySelector('#dg-popup-close').addEventListener('click', () => this._closePopup());
-    header.querySelector('#dg-popup-close').addEventListener('mouseenter', (e) => { e.target.style.background = 'rgba(255,255,255,0.2)'; });
-    header.querySelector('#dg-popup-close').addEventListener('mouseleave', (e) => { e.target.style.background = 'rgba(255,255,255,0.1)'; });
-
+    overlay.addEventListener('click', e => { if (e.target === overlay) this._closePopup(); });
     this._popupOverlay = overlay;
 
-    // Load graph data into popup
-    this._loadGraphInto(graphWrap, true);
+    // Load initial graph
+    this._loadGraphInto(graphInner, true, this._popupHours);
   }
 
   _closePopup() {
-    if (this._popupOverlay) {
-      this._popupOverlay.style.opacity = '0';
-      this._popupOverlay.style.transition = 'opacity 0.18s ease';
-      setTimeout(() => {
-        if (this._popupOverlay && this._popupOverlay.parentNode) {
-          this._popupOverlay.parentNode.removeChild(this._popupOverlay);
-        }
-        this._popupOverlay = null;
-      }, 180);
-    }
+    if (!this._popupOverlay) return;
+    this._popupOverlay.style.transition = 'opacity 0.18s ease';
+    this._popupOverlay.style.opacity = '0';
+    setTimeout(() => {
+      if (this._popupOverlay?.parentNode) this._popupOverlay.parentNode.removeChild(this._popupOverlay);
+      this._popupOverlay = null;
+    }, 180);
   }
 
-  async _loadGraphInto(container, popupMode) {
+  async _loadGraphInto(container, popupMode, hours) {
     if (!this._config.glucose_entity) return;
+    const h = hours || this._config.graph_hours || 3;
     try {
-      const hours = parseInt(this._config.graph_hours) || 3;
       const end   = new Date();
-      const start = new Date(end - hours * 3600 * 1000);
+      const start = new Date(end - h * 3600 * 1000);
       const resp  = await this._hass.callApi('GET',
         `history/period/${start.toISOString()}?filter_entity_id=${this._config.glucose_entity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
       );
@@ -345,10 +411,9 @@ class DolphinDiabetesCard extends HTMLElement {
         container.innerHTML = this._buildGraph([], [], popupMode);
       }
     } catch {
-      const glucoseState = this._hass.states[this._config.glucose_entity];
-      const currentVal   = parseFloat(glucoseState?.state);
+      const currentVal = parseFloat(this._hass?.states[this._config.glucose_entity]?.state);
       if (!isNaN(currentVal)) {
-        const fakeVals = Array.from({ length: 18 }, (_, i) => currentVal + (Math.random() - 0.5) * 0.4);
+        const fakeVals = Array.from({ length: 20 }, () => currentVal + (Math.random() - 0.5) * 0.5);
         container.innerHTML = this._buildGraph(fakeVals, null, popupMode);
       } else {
         container.innerHTML = this._buildGraph([], [], popupMode);
@@ -367,9 +432,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const hexBg      = cfg.card_bg || '#1c1c1e';
     const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
     const cardBgRgba = `rgba(${rr},${gg},${bb},${bgOpacity})`;
-    const loLabel    = cfg.unit === 'mgdl' ? Math.round(parseFloat(cfg.low_threshold))  : parseFloat(cfg.low_threshold).toFixed(1);
-    const hiLabel    = cfg.unit === 'mgdl' ? Math.round(parseFloat(cfg.high_threshold)) : parseFloat(cfg.high_threshold).toFixed(1);
-    const circ       = 2 * Math.PI * 34;
+    const circ = 2 * Math.PI * 34;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -391,10 +454,10 @@ class DolphinDiabetesCard extends HTMLElement {
           cursor: pointer;
           user-select: none; -webkit-user-select: none;
         }
+        ha-card:active { transform: scale(0.992); opacity: 0.92; }
 
         .dg-inner { padding: 20px 20px 16px; }
 
-        /* ── Header ── */
         .dg-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 16px;
@@ -403,32 +466,25 @@ class DolphinDiabetesCard extends HTMLElement {
           font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
           text-transform: uppercase; color: rgba(255,255,255,0.45);
         }
-        /* Time-ago sits in the header on the right */
         .dg-time {
           font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4);
           font-variant-numeric: tabular-nums; transition: color 0.4s ease;
         }
 
-        /* ── Main row: glucose ring LEFT, status+trend ring RIGHT ── */
         .dg-main-row {
           display: flex; align-items: center;
           justify-content: space-between;
           margin-bottom: 12px;
         }
 
-        /* Shared ring block style */
-        .dg-ring-block {
-          position: relative; flex-shrink: 0;
-          width: 88px; height: 88px;
-        }
+        /* Glucose ring — left */
+        .dg-ring-block { position: relative; flex-shrink: 0; width: 88px; height: 88px; }
         .dg-ring-block svg { position: absolute; top: 0; left: 0; }
         .dg-ring-center {
           position: absolute; inset: 0;
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
         }
-
-        /* Glucose number inside left ring */
         .dg-glucose-num {
           font-size: 28px; font-weight: 700; letter-spacing: -1.5px;
           line-height: 1; transition: color 0.4s ease;
@@ -436,63 +492,32 @@ class DolphinDiabetesCard extends HTMLElement {
         .dg-unit {
           font-size: 9px; font-weight: 600;
           color: rgba(255,255,255,0.4); margin-top: 2px;
-          /* Intentionally NOT text-transform:uppercase so mixed case is preserved */
         }
 
-        /* Trend ring on the right — same size as glucose ring */
-        .dg-trend-ring-block {
-          position: relative; flex-shrink: 0;
-          width: 88px; height: 88px;
+        /* Status pill — centre */
+        .dg-status-pill {
+          display: inline-block; padding: 3px 10px;
+          border-radius: 20px; font-size: 11px; font-weight: 700;
+          letter-spacing: 0.04em; border: 1px solid transparent;
+          transition: all 0.4s ease; white-space: nowrap;
         }
+
+        /* Trend ring — right (no arrow, just ring + text label) */
+        .dg-trend-ring-block { position: relative; flex-shrink: 0; width: 88px; height: 88px; }
         .dg-trend-ring-block svg { position: absolute; top: 0; left: 0; }
         .dg-trend-ring-center {
           position: absolute; inset: 0;
           display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 3px;
+          align-items: center; justify-content: center; gap: 0; padding: 12px;
         }
-        .dg-trend-icon { display: flex; align-items: center; justify-content: center; transition: color 0.4s ease; }
-        .dg-trend-label {
-          font-size: 9px; font-weight: 600; letter-spacing: 0.02em;
-          color: rgba(255,255,255,0.5); text-align: center; line-height: 1.2;
-          max-width: 70px;
-        }
-
-        /* Status pill moved below the header, above main row — now replaces time */
-        .dg-status-pill {
-          display: inline-block; padding: 3px 10px;
-          border-radius: 20px; font-size: 11px; font-weight: 700;
-          letter-spacing: 0.04em;
-          border: 1px solid transparent;
-          transition: all 0.4s ease;
-          white-space: nowrap;
-        }
-
-        /* Range bar */
-        .dg-range-bar-wrap {
-          display: flex; align-items: center; gap: 8px; margin-top: 8px;
-        }
-        .dg-range-bar-label {
-          font-size: 10px; font-weight: 600;
-          width: 30px; flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right;
-        }
-        .dg-range-bar {
-          flex: 1; height: 4px; background: rgba(255,255,255,0.1);
-          border-radius: 2px; overflow: hidden;
-        }
-        .dg-range-bar-fill {
-          height: 100%; border-radius: 2px;
-          transition: width 0.6s ease, background 0.4s ease;
-        }
-        .dg-range-bar-label-right {
-          font-size: 10px; font-weight: 600;
-          width: 30px; flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: left;
+        .dg-trend-text {
+          font-size: 9px; font-weight: 700; letter-spacing: 0.01em;
+          text-align: center; line-height: 1.25;
+          transition: color 0.4s ease; max-width: 64px;
         }
 
         /* Graph */
-        .dg-graph-wrap {
-          display: ${cfg.show_graph ? 'block' : 'none'};
-          margin-top: 12px;
-        }
+        .dg-graph-wrap { display: ${cfg.show_graph ? 'block' : 'none'}; margin-top: 12px; }
         .dg-graph-label {
           font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
           text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 6px;
@@ -503,23 +528,20 @@ class DolphinDiabetesCard extends HTMLElement {
       <ha-card id="dg-card">
         <div class="dg-inner">
 
-          <!-- Header: title left, time-ago right -->
           <div class="dg-header" style="display:${cfg.show_title !== false ? 'flex' : 'none'}">
             <span class="dg-title">${cfg.title || 'Blood Sugar'}</span>
             <span class="dg-time" id="dg-time-ago">--</span>
           </div>
 
-          <!-- Main row -->
           <div class="dg-main-row">
 
-            <!-- LEFT: Glucose ring -->
+            <!-- Glucose ring -->
             <div class="dg-ring-block">
               <svg viewBox="0 0 88 88" width="88" height="88">
-                <circle cx="44" cy="44" r="34"
-                  fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
                 <circle id="dg-ring-arc" cx="44" cy="44" r="34"
                   fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ * 0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
               </svg>
               <div class="dg-ring-center">
                 <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}">
@@ -529,40 +551,25 @@ class DolphinDiabetesCard extends HTMLElement {
               </div>
             </div>
 
-            <!-- CENTRE: status pill -->
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;">
+            <!-- Status pill centre -->
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;">
               <span class="dg-status-pill" id="dg-status-pill"
                 style="background:${accent}28;color:${accent};border-color:${accent}55">--</span>
             </div>
 
-            <!-- RIGHT: Trend ring -->
+            <!-- Trend ring (right) — ring fill only, no arrow -->
             <div class="dg-trend-ring-block">
               <svg viewBox="0 0 88 88" width="88" height="88">
-                <circle cx="44" cy="44" r="34"
-                  fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
                 <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
                   fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ * 0.75};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
               </svg>
               <div class="dg-trend-ring-center">
-                <div class="dg-trend-icon" id="dg-trend-icon" style="color:${accent}">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.25">
-                    <path d="M5 12h14"/>
-                  </svg>
-                </div>
-                <span class="dg-trend-label" id="dg-trend-label"></span>
+                <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.4)">--</span>
               </div>
             </div>
 
-          </div>
-
-          <!-- Range bar -->
-          <div class="dg-range-bar-wrap">
-            <span class="dg-range-bar-label" id="dg-lo-label" style="color:${cfg.low_color}">${loLabel}</span>
-            <div class="dg-range-bar">
-              <div class="dg-range-bar-fill" id="dg-bar-fill" style="width:50%;background:${accent}"></div>
-            </div>
-            <span class="dg-range-bar-label-right" id="dg-hi-label" style="color:${cfg.high_color}">${hiLabel}</span>
           </div>
 
           <!-- Graph -->
@@ -580,49 +587,38 @@ class DolphinDiabetesCard extends HTMLElement {
     this._updateCard();
   }
 
-  // ── Touch / click interactions ────────────────────────────────────
+  // ── Interactions ──────────────────────────────────────────────────
 
   _setupInteractions() {
     const card = this.shadowRoot.getElementById('dg-card');
     if (!card) return;
 
-    // Long-press → HA more-info dialog
-    // Short tap   → elegant popup with graph
-
-    const startLongPress = () => {
+    const start = () => {
       this._longPressFired = false;
       this._longPressTimer = setTimeout(() => {
         this._longPressFired = true;
         this._fireMoreInfo();
       }, 600);
     };
+    const cancel = () => clearTimeout(this._longPressTimer);
 
-    const cancelLongPress = () => {
-      clearTimeout(this._longPressTimer);
-    };
-
-    card.addEventListener('mousedown', startLongPress);
-    card.addEventListener('touchstart', startLongPress, { passive: true });
-
-    card.addEventListener('mouseup', cancelLongPress);
-    card.addEventListener('mouseleave', cancelLongPress);
-    card.addEventListener('touchend', cancelLongPress);
-    card.addEventListener('touchcancel', cancelLongPress);
-
+    card.addEventListener('mousedown',   start);
+    card.addEventListener('touchstart',  start, { passive: true });
+    card.addEventListener('mouseup',     cancel);
+    card.addEventListener('mouseleave',  cancel);
+    card.addEventListener('touchend',    cancel);
+    card.addEventListener('touchcancel', cancel);
     card.addEventListener('click', () => {
-      if (this._longPressFired) return; // long press already handled
-      this._openPopup();
+      if (!this._longPressFired) this._openPopup();
     });
   }
 
   _fireMoreInfo() {
     const entityId = this._config.glucose_entity;
     if (!entityId) return;
-    const event = new CustomEvent('hass-more-info', {
-      bubbles: true, composed: true,
-      detail: { entityId }
-    });
-    this.dispatchEvent(event);
+    this.dispatchEvent(new CustomEvent('hass-more-info', {
+      bubbles: true, composed: true, detail: { entityId }
+    }));
   }
 
   // ── Update ─────────────────────────────────────────────────────────
@@ -637,105 +633,74 @@ class DolphinDiabetesCard extends HTMLElement {
                       || trendState?.attributes?.trend
                       || trendState?.attributes?.trend_description;
     const lastUpdate   = glucoseState?.last_changed || glucoseState?.last_updated;
-
     const root         = this.shadowRoot;
     const statusColor  = this._getStatusColor(glucoseVal);
     const statusLabel  = this._getStatusLabel(glucoseVal);
     const trendInfo    = this._getTrendInfo(trendVal);
     const circ         = 2 * Math.PI * 34;
 
-    // Glucose number & colour
+    // Glucose number
     const glucoseEl = root.getElementById('dg-glucose');
     if (glucoseEl) glucoseEl.textContent = this._formatGlucose(glucoseVal);
     const numEl = root.getElementById('dg-glucose-num');
     if (numEl) numEl.style.color = statusColor;
-
-    // Unit label — preserve exact casing from _unitLabel()
     const unitEl = root.getElementById('dg-unit');
     if (unitEl) unitEl.textContent = this._unitLabel();
 
-    // Status pill (centre)
+    // Status pill
     const pillEl = root.getElementById('dg-status-pill');
     if (pillEl) {
-      pillEl.textContent = statusLabel;
-      pillEl.style.background    = statusColor + '28';
-      pillEl.style.color         = statusColor;
-      pillEl.style.borderColor   = statusColor + '55';
+      pillEl.textContent      = statusLabel;
+      pillEl.style.background = statusColor + '28';
+      pillEl.style.color      = statusColor;
+      pillEl.style.borderColor = statusColor + '55';
     }
 
-    // Glucose ring arc
+    // Glucose ring
     const ringEl = root.getElementById('dg-ring-arc');
     if (ringEl && glucoseVal) {
-      const n = parseFloat(glucoseVal);
-      const lo = parseFloat(this._config.low_threshold);
-      const hi = parseFloat(this._config.high_threshold);
+      const n  = parseFloat(glucoseVal);
+      const lo = this._config.unit === 'mgdl' ? 70  : 3.9;
+      const hi = this._config.unit === 'mgdl' ? 180 : 10.0;
       const pct = Math.min(1, Math.max(0, (n - lo * 0.6) / (hi * 1.4 - lo * 0.6)));
       ringEl.style.strokeDashoffset = circ * (1 - pct);
       ringEl.style.stroke = statusColor;
     }
 
-    // Trend ring arc — fixed partial fill to show it's informational, not a progress
+    // Trend ring — fill represents direction, no arrow icon
     const trendRingEl = root.getElementById('dg-trend-ring-arc');
     if (trendRingEl) {
-      // Map trend direction (deg 0=up, 90=flat, 180=down) → ring fill 0–1
-      if (trendInfo) {
-        const trendPct = 1 - (trendInfo.deg / 180);          // up=1.0, flat=0.5, down=0.0
-        trendRingEl.style.strokeDashoffset = circ * (1 - Math.max(0.08, trendPct));
-      } else {
-        trendRingEl.style.strokeDashoffset = circ * 0.5;
-      }
+      const trendPct = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
+      trendRingEl.style.strokeDashoffset = circ * (1 - trendPct);
       trendRingEl.style.stroke = statusColor;
     }
 
-    // Trend icon
-    const trendEl = root.getElementById('dg-trend-icon');
-    if (trendEl) {
-      if (trendInfo) {
-        trendEl.style.color = statusColor;
-        trendEl.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"
-          style="transform:rotate(${trendInfo.deg}deg);transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1);">
-          <path d="M12 3.5L5.5 12H9.5V20.5H14.5V12H18.5L12 3.5Z"/>
-        </svg>`;
-      } else {
-        trendEl.style.color = 'rgba(255,255,255,0.25)';
-        trendEl.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M5 12h14"/>
-        </svg>`;
-      }
+    // Trend text label inside ring (no arrow)
+    const trendTextEl = root.getElementById('dg-trend-text');
+    if (trendTextEl) {
+      const label = trendInfo?.label || (trendVal ? trendVal : '--');
+      trendTextEl.textContent = label;
+      trendTextEl.style.color = trendInfo ? statusColor : 'rgba(255,255,255,0.35)';
     }
 
-    // Trend label
-    const trendLabelEl = root.getElementById('dg-trend-label');
-    if (trendLabelEl) trendLabelEl.textContent = trendInfo?.label || (trendVal ? trendVal : '');
-
-    // Time-ago (in header, top right)
+    // Time-ago
     const timeEl = root.getElementById('dg-time-ago');
     if (timeEl && lastUpdate) {
       const mins = Math.floor((Date.now() - new Date(lastUpdate).getTime()) / 60000);
       timeEl.textContent = mins < 1 ? 'Just now'
         : mins === 1 ? '1 min ago'
         : mins < 60 ? `${mins} mins ago`
-        : `${Math.floor(mins / 60)}h ago`;
+        : `${Math.floor(mins/60)}h ago`;
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.4)';
     }
 
-    // Range bar
-    const barFill = root.getElementById('dg-bar-fill');
-    if (barFill && glucoseVal) {
-      const n  = parseFloat(glucoseVal);
-      const lo = parseFloat(this._config.low_threshold);
-      const hi = parseFloat(this._config.high_threshold);
-      const pct = Math.min(100, Math.max(0, ((n - lo * 0.6) / (hi * 1.4 - lo * 0.6)) * 100));
-      barFill.style.width      = `${pct}%`;
-      barFill.style.background = statusColor;
-    }
-
-    // Graph (inline card graph)
+    // Inline card graph
     if (this._config.show_graph) {
       const graphInner = root.getElementById('dg-graph-inner');
       if (graphInner && !this._historyFetching) {
         this._historyFetching = true;
-        this._loadGraphInto(graphInner, false).finally(() => { this._historyFetching = false; });
+        this._loadGraphInto(graphInner, false, parseInt(this._config.graph_hours) || 3)
+          .finally(() => { this._historyFetching = false; });
       }
     }
   }
@@ -778,12 +743,10 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     setVal('glucose_entity', cfg.glucose_entity || '');
     setVal('trend_entity',   cfg.trend_entity   || '');
     setVal('title',          cfg.title          || 'Blood Sugar');
-    setVal('low_threshold',  cfg.low_threshold  ?? 3.9);
-    setVal('high_threshold', cfg.high_threshold ?? 10.0);
     setChk('show_graph',     cfg.show_graph !== false);
     setChk('show_title',     cfg.show_title !== false);
 
-    root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = (r.value === cfg.unit); });
+    root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = (r.value === (cfg.unit || 'mmol')); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = (parseInt(r.value) === parseInt(cfg.graph_hours || 3)); });
 
     for (const field of this._getColourFields()) {
@@ -800,14 +763,14 @@ class DolphinDiabetesCardEditor extends HTMLElement {
 
   _getColourFields() {
     return [
-      { key: 'accent_color',     label: 'Accent',          desc: 'Ring & icon highlight',            default: '#007AFF' },
-      { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range',  default: '#34C759' },
-      { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',       default: '#FF3B30' },
-      { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',      default: '#FF9500' },
-      { key: 'graph_line_color', label: 'Graph Line',       desc: 'Blood sugar graph line colour',    default: '#007AFF' },
-      { key: 'graph_fill_color', label: 'Graph Fill',       desc: 'Graph area fill colour',           default: '#007AFF' },
-      { key: 'card_bg',          label: 'Card Background',  desc: 'Card background colour',           default: '#1c1c1e' },
-      { key: 'text_color',       label: 'Text Colour',      desc: 'Primary text colour',              default: '#ffffff' },
+      { key: 'accent_color',     label: 'Accent',          desc: 'Ring & icon highlight',           default: '#007AFF' },
+      { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range', default: '#34C759' },
+      { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',      default: '#FF3B30' },
+      { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500' },
+      { key: 'graph_line_color', label: 'Graph Line',       desc: 'Graph line colour',               default: '#007AFF' },
+      { key: 'graph_fill_color', label: 'Graph Fill',       desc: 'Graph area fill colour',          default: '#007AFF' },
+      { key: 'card_bg',          label: 'Card Background',  desc: 'Card background colour',          default: '#1c1c1e' },
+      { key: 'text_color',       label: 'Text Colour',      desc: 'Primary text colour',             default: '#ffffff' },
     ];
   }
 
@@ -816,7 +779,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     const cfg  = this._config;
 
     const allEntities = Object.keys(hass.states).sort();
-    const entityOptions = (val) => `
+    const entityOptions = val => `
       <option value="">— None —</option>
       ${allEntities.map(e => {
         const name = hass.states[e]?.attributes?.friendly_name || e;
@@ -835,15 +798,15 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         .select-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
         .select-row label { font-size: 13px; font-weight: 600; color: var(--primary-text-color); }
         .hint { font-size: 11px; color: #888; }
-        select, input[type="text"], input[type="number"] {
-          width: 100%; background: var(--secondary-background-color, rgba(0,0,0,0.06));
+        select, input[type="text"] {
+          width: 100%; background: var(--secondary-background-color,rgba(0,0,0,0.06));
           color: var(--primary-text-color); border: 1px solid rgba(128,128,128,0.2);
           border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer;
           -webkit-appearance: none; appearance: none;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
           background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
         }
-        input[type="text"], input[type="number"] { background-image: none; padding-right: 12px; cursor: text; }
+        input[type="text"] { background-image: none; padding-right: 12px; cursor: text; }
         .toggle-list { display: flex; flex-direction: column; }
         .toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid rgba(128,128,128,0.1); min-height: 52px; }
         .toggle-item:last-child { border-bottom: none; }
@@ -852,37 +815,34 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         .toggle-switch { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
         .toggle-track { position: absolute; inset: 0; border-radius: 31px; background: rgba(120,120,128,0.32); cursor: pointer; transition: background 0.25s ease; }
-        .toggle-track::after { content: ''; position: absolute; width: 27px; height: 27px; border-radius: 50%; background: #fff; top: 2px; left: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.25s ease; }
+        .toggle-track::after { content:''; position:absolute; width:27px; height:27px; border-radius:50%; background:#fff; top:2px; left:2px; box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:transform 0.25s ease; }
         .toggle-switch input:checked + .toggle-track { background: #34C759; }
         .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
-        .segmented { display: flex; background: rgba(118,118,128,0.18); border-radius: 9px; padding: 2px; gap: 2px; }
-        .segmented input[type="radio"] { display: none; }
-        .segmented label { flex: 1; text-align: center; padding: 8px 4px; font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; color: var(--primary-text-color); transition: all 0.2s ease; }
-        .segmented input[type="radio"]:checked + label { background: #007AFF; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+        .segmented { display:flex; background:rgba(118,118,128,0.18); border-radius:9px; padding:2px; gap:2px; }
+        .segmented input[type="radio"] { display:none; }
+        .segmented label { flex:1; text-align:center; padding:8px 4px; font-size:13px; font-weight:500; border-radius:7px; cursor:pointer; color:var(--primary-text-color); transition:all 0.2s ease; }
+        .segmented input[type="radio"]:checked + label { background:#007AFF; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
         .input-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
-        .threshold-row { display: flex; gap: 12px; }
-        .threshold-row > div { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .threshold-row label { font-size: 11px; font-weight: 600; color: #888; }
-        .colour-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .colour-card { border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); border-radius: 10px; overflow: hidden; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; position: relative; }
-        .colour-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.12); border-color: var(--primary-color, #007AFF); }
-        .colour-swatch { height: 44px; width: 100%; display: block; position: relative; }
-        .colour-swatch input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: none; padding: 0; }
-        .colour-swatch-preview { position: absolute; inset: 0; pointer-events: none; }
-        .colour-swatch::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%); background-size: 8px 8px; background-position: 0 0,0 4px,4px -4px,-4px 0; opacity: 0.3; pointer-events: none; }
-        .colour-info { padding: 6px 8px 7px; background: var(--card-background-color, #fff); }
-        .colour-label { font-size: 11px; font-weight: 700; color: var(--primary-text-color); letter-spacing: 0.02em; margin-bottom: 1px; }
-        .colour-desc { font-size: 10px; color: var(--secondary-text-color, #6b7280); margin-bottom: 4px; line-height: 1.3; }
-        .colour-hex-row { display: flex; align-items: center; gap: 4px; }
-        .colour-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; }
-        .colour-hex { flex: 1; font-size: 11px; font-family: monospace; border: none; background: none; color: var(--secondary-text-color, #6b7280); padding: 0; width: 0; min-width: 0; }
-        .colour-hex:focus { outline: none; color: var(--primary-text-color); }
-        .colour-edit-icon { opacity: 0; transition: opacity 0.15s; color: var(--secondary-text-color); font-size: 14px; line-height: 1; }
-        .colour-card:hover .colour-edit-icon { opacity: 1; }
-        .opacity-row { padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-        .opacity-row label { font-size: 13px; font-weight: 600; flex-shrink: 0; }
-        .opacity-row input[type="range"] { flex: 1; height: 5px; accent-color: #007AFF; background: none; border: none; padding: 0; cursor: pointer; -webkit-appearance: auto; appearance: auto; background-image: none; }
-        .opacity-val { font-size: 12px; color: #888; font-variant-numeric: tabular-nums; width: 32px; text-align: right; flex-shrink: 0; }
+        .colour-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .colour-card { border:1px solid var(--divider-color,rgba(0,0,0,0.12)); border-radius:10px; overflow:hidden; cursor:pointer; transition:box-shadow 0.15s,border-color 0.15s; position:relative; }
+        .colour-card:hover { box-shadow:0 2px 10px rgba(0,0,0,0.12); border-color:var(--primary-color,#007AFF); }
+        .colour-swatch { height:44px; width:100%; display:block; position:relative; }
+        .colour-swatch input[type="color"] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; padding:0; }
+        .colour-swatch-preview { position:absolute; inset:0; pointer-events:none; }
+        .colour-swatch::before { content:''; position:absolute; inset:0; background-image:linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%); background-size:8px 8px; background-position:0 0,0 4px,4px -4px,-4px 0; opacity:0.3; pointer-events:none; }
+        .colour-info { padding:6px 8px 7px; background:var(--card-background-color,#fff); }
+        .colour-label { font-size:11px; font-weight:700; color:var(--primary-text-color); letter-spacing:0.02em; margin-bottom:1px; }
+        .colour-desc { font-size:10px; color:var(--secondary-text-color,#6b7280); margin-bottom:4px; line-height:1.3; }
+        .colour-hex-row { display:flex; align-items:center; gap:4px; }
+        .colour-dot { width:12px; height:12px; border-radius:50%; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; }
+        .colour-hex { flex:1; font-size:11px; font-family:monospace; border:none; background:none; color:var(--secondary-text-color,#6b7280); padding:0; width:0; min-width:0; }
+        .colour-hex:focus { outline:none; color:var(--primary-text-color); }
+        .colour-edit-icon { opacity:0; transition:opacity 0.15s; color:var(--secondary-text-color); font-size:14px; line-height:1; }
+        .colour-card:hover .colour-edit-icon { opacity:1; }
+        .opacity-row { padding:12px 16px; display:flex; align-items:center; gap:12px; }
+        .opacity-row label { font-size:13px; font-weight:600; flex-shrink:0; }
+        .opacity-row input[type="range"] { flex:1; height:5px; accent-color:#007AFF; background:none; border:none; padding:0; cursor:pointer; -webkit-appearance:auto; appearance:auto; background-image:none; }
+        .opacity-val { font-size:12px; color:#888; font-variant-numeric:tabular-nums; width:32px; text-align:right; flex-shrink:0; }
       </style>
 
       <div class="container">
@@ -909,35 +869,13 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           <div class="section-title">Glucose Unit</div>
           <div class="card-block" style="padding:12px;">
             <div class="segmented">
-              <input type="radio" name="unit" id="unit_mmol" value="mmol" ${cfg.unit !== 'mgdl' ? 'checked' : ''}>
-              <label for="unit_mmol">mmol/L</label>
-              <input type="radio" name="unit" id="unit_mgdl" value="mgdl" ${cfg.unit === 'mgdl' ? 'checked' : ''}>
-              <label for="unit_mgdl">mg/dL</label>
+              <input type="radio" name="unit" id="unit_mmol" value="mmol" ${cfg.unit !== 'mgdl' ? 'checked' : ''}><label for="unit_mmol">mmol/L</label>
+              <input type="radio" name="unit" id="unit_mgdl" value="mgdl" ${cfg.unit === 'mgdl' ? 'checked' : ''}><label for="unit_mgdl">mg/dL</label>
             </div>
           </div>
         </div>
 
-        <!-- Thresholds -->
-        <div>
-          <div class="section-title">Thresholds</div>
-          <div class="card-block">
-            <div class="input-row">
-              <div class="hint" style="margin-bottom:4px">Values used to colour the reading and graph guide lines</div>
-              <div class="threshold-row">
-                <div>
-                  <label>Low (below)</label>
-                  <input type="number" id="low_threshold" step="0.1" min="0" value="${cfg.low_threshold ?? 3.9}">
-                </div>
-                <div>
-                  <label>High (above)</label>
-                  <input type="number" id="high_threshold" step="0.1" min="0" value="${cfg.high_threshold ?? 10.0}">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Display options -->
+        <!-- Display Options -->
         <div>
           <div class="section-title">Display Options</div>
           <div class="card-block">
@@ -945,25 +883,23 @@ class DolphinDiabetesCardEditor extends HTMLElement {
               <div class="toggle-item">
                 <div><div class="toggle-label">Show Title</div></div>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="show_title" ${cfg.show_title !== false ? 'checked' : ''}>
-                  <span class="toggle-track"></span>
+                  <input type="checkbox" id="show_title" ${cfg.show_title !== false ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
               <div class="toggle-item">
                 <div>
                   <div class="toggle-label">Show Blood Sugar Graph</div>
-                  <div class="toggle-sublabel">Fetches recent history from Home Assistant</div>
+                  <div class="toggle-sublabel">Displays recent history on the card</div>
                 </div>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="show_graph" ${cfg.show_graph !== false ? 'checked' : ''}>
-                  <span class="toggle-track"></span>
+                  <input type="checkbox" id="show_graph" ${cfg.show_graph !== false ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Title text -->
+        <!-- Card Title -->
         <div>
           <div class="section-title">Card Title Text</div>
           <div class="card-block">
@@ -973,9 +909,9 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Graph hours -->
+        <!-- Graph Hours -->
         <div id="graph_hours_section" style="${cfg.show_graph !== false ? '' : 'display:none'}">
-          <div class="section-title">Graph Time Range</div>
+          <div class="section-title">Default Graph Time Range</div>
           <div class="card-block" style="padding:12px;">
             <div class="segmented">
               <input type="radio" name="graph_hours" id="gh_1"  value="1"  ${cfg.graph_hours == 1  ? 'checked' : ''}><label for="gh_1">1h</label>
@@ -1034,7 +970,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       const hexInput     = card.querySelector('.colour-hex');
       const preview      = card.querySelector('.colour-swatch-preview');
       const dot          = card.querySelector('.colour-dot');
-      const apply = (val) => {
+      const apply = val => {
         preview.style.background = val; dot.style.background = val;
         if (/^#[0-9a-fA-F]{6}$/.test(val)) nativePicker.value = val;
         hexInput.value = val;
@@ -1044,7 +980,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       nativePicker.addEventListener('change', () => apply(nativePicker.value));
       hexInput.addEventListener('input', () => { const v = hexInput.value.trim(); if (/^#[0-9a-fA-F]{6}$/.test(v)) apply(v); });
       hexInput.addEventListener('blur',  () => { const cur = this._config[field.key] || field.default; if (!/^#[0-9a-fA-F]{6}$/.test(hexInput.value.trim())) hexInput.value = cur; });
-      hexInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') hexInput.blur(); });
+      hexInput.addEventListener('keydown', e => { if (e.key === 'Enter') hexInput.blur(); });
       grid.appendChild(card);
     }
 
@@ -1059,8 +995,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     get('glucose_entity').onchange = e => this._updateConfig('glucose_entity', e.target.value);
     get('trend_entity').onchange   = e => this._updateConfig('trend_entity',   e.target.value);
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.onchange = () => this._updateConfig('unit', r.value); });
-    get('low_threshold').onchange  = e => this._updateConfig('low_threshold',  parseFloat(e.target.value));
-    get('high_threshold').onchange = e => this._updateConfig('high_threshold', parseFloat(e.target.value));
     get('show_title').onchange     = e => this._updateConfig('show_title', e.target.checked);
     get('show_graph').onchange     = e => {
       this._updateConfig('show_graph', e.target.checked);
