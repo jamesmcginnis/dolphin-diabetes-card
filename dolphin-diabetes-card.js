@@ -136,8 +136,8 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!glucoseValues || glucoseValues.length < 2) {
       return `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:12px;">Not enough data</div>`;
     }
-    const W = 400, H = popupMode ? 160 : 90;
-    const pad = { top: 8, right: 8, bottom: 18, left: 8 };
+    const W = 400, H = popupMode ? 160 : 96;
+    const pad = { top: 8, right: 8, bottom: 22, left: 8 };
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
     const lo = this._lo(), hi = this._hi();
@@ -159,8 +159,8 @@ class DolphinDiabetesCard extends HTMLElement {
     let xLabels = '';
     if (timestamps && timestamps.length >= 2) {
       const fmt = ts => { try { const d = new Date(ts); return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; } catch { return ''; } };
-      xLabels = `<text x="${pad.left+2}" y="${H-3}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="start">${fmt(timestamps[0])}</text>
-        <text x="${W-pad.right-2}" y="${H-3}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="end">${fmt(timestamps[timestamps.length-1])}</text>`;
+      xLabels = `<text x="${pad.left+2}" y="${H-6}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="start">${fmt(timestamps[0])}</text>
+        <text x="${W-pad.right-2}" y="${H-6}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="end">${fmt(timestamps[timestamps.length-1])}</text>`;
     }
 
     const lastX = xs[xs.length-1], lastY = ys[ys.length-1];
@@ -436,6 +436,13 @@ class DolphinDiabetesCard extends HTMLElement {
           justify-content: space-between;
         }
 
+        /* Breathing glow animation on rings */
+        @keyframes dgBreath {
+          0%, 100% { opacity: 1; filter: drop-shadow(0 0 3px currentColor); }
+          50%       { opacity: 0.72; filter: drop-shadow(0 0 8px currentColor); }
+        }
+        .dg-ring-breathing { animation: dgBreath 3s ease-in-out infinite; }
+
         /* Both rings share these dimensions */
         .dg-ring-block, .dg-trend-ring-block {
           position: relative; flex-shrink: 0; width: 80px; height: 80px;
@@ -462,20 +469,15 @@ class DolphinDiabetesCard extends HTMLElement {
           transition: color 0.4s; padding: 8px;
         }
 
-        /* Status pill — centred between rings */
-        .dg-status-pill {
-          display: inline-block; padding: 3px 10px;
-          border-radius: 20px; font-size: 11px; font-weight: 700;
-          letter-spacing: 0.04em; border: 1px solid transparent;
-          transition: all 0.4s; white-space: nowrap;
-        }
+        /* Centre spacer between rings */
+        .dg-centre { flex: 1; }
 
         /* Graph — tight spacing, no label */
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
           margin-top: 10px;
         }
-        .dg-graph-inner { height: 72px; position: relative; }
+        .dg-graph-inner { height: 78px; position: relative; overflow: visible; }
       </style>
 
       <ha-card id="dg-card">
@@ -496,7 +498,8 @@ class DolphinDiabetesCard extends HTMLElement {
                 <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
                 <circle id="dg-ring-arc" cx="44" cy="44" r="34"
                   fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                  class="dg-ring-breathing"
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;color:${accent}"/>
               </svg>
               <div class="dg-ring-center">
                 <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
@@ -504,11 +507,8 @@ class DolphinDiabetesCard extends HTMLElement {
               </div>
             </div>
 
-            <!-- Status pill -->
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;">
-              <span class="dg-status-pill" id="dg-status-pill"
-                style="background:${accent}28;color:${accent};border-color:${accent}55">--</span>
-            </div>
+            <!-- Centre spacer -->
+            <div class="dg-centre"></div>
 
             <!-- Trend ring -->
             <div class="dg-trend-ring-block">
@@ -516,7 +516,8 @@ class DolphinDiabetesCard extends HTMLElement {
                 <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
                 <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
                   fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                  class="dg-ring-breathing"
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;color:${accent}"/>
               </svg>
               <div class="dg-trend-ring-center">
                 <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.35)">--</span>
@@ -576,48 +577,48 @@ class DolphinDiabetesCard extends HTMLElement {
     const trendInfo    = this._getTrendInfo(trendVal);
     const circ         = 2 * Math.PI * 34;
 
+    // In range → use the configured normal colour. Out of range → grey out everything.
+    const isInRange = this._getStatusLabel(glucoseVal) === 'In Range';
+    const displayColor = isInRange ? statusColor : 'rgba(255,255,255,0.28)';
+
     // Glucose number
     const glucoseEl = root.getElementById('dg-glucose');
     if (glucoseEl) glucoseEl.textContent = this._formatGlucose(glucoseVal);
     const numEl = root.getElementById('dg-glucose-num');
-    if (numEl) numEl.style.color = statusColor;
+    if (numEl) numEl.style.color = displayColor;
     const unitEl = root.getElementById('dg-unit');
-    if (unitEl) unitEl.textContent = this._unitLabel();
-
-    // Status pill
-    const pillEl = root.getElementById('dg-status-pill');
-    if (pillEl) {
-      pillEl.textContent       = statusLabel;
-      pillEl.style.background  = statusColor + '28';
-      pillEl.style.color       = statusColor;
-      pillEl.style.borderColor = statusColor + '55';
+    if (unitEl) {
+      unitEl.textContent = this._unitLabel();
+      unitEl.style.color = isInRange ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.25)';
     }
 
-    // Glucose ring
+    // Glucose ring — arc colour + breathing glow colour via CSS currentColor
     const ringEl = root.getElementById('dg-ring-arc');
     if (ringEl && glucoseVal) {
       const n = parseFloat(glucoseVal);
       const pct = Math.min(1, Math.max(0, (n - this._lo() * 0.6) / (this._hi() * 1.4 - this._lo() * 0.6)));
       ringEl.style.strokeDashoffset = circ * (1 - pct);
-      ringEl.style.stroke = statusColor;
+      ringEl.style.stroke = displayColor;
+      ringEl.style.color  = displayColor; // used by drop-shadow(currentColor) in breathing
     }
 
-    // Trend ring
+    // Trend ring — arc + breathing glow via CSS currentColor
     const trendRingEl = root.getElementById('dg-trend-ring-arc');
     if (trendRingEl) {
       const trendPct = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
       trendRingEl.style.strokeDashoffset = circ * (1 - trendPct);
-      trendRingEl.style.stroke = statusColor;
+      trendRingEl.style.stroke = displayColor;
+      trendRingEl.style.color  = displayColor;
     }
 
     // Trend text
     const trendTextEl = root.getElementById('dg-trend-text');
     if (trendTextEl) {
       trendTextEl.textContent = trendInfo?.label || (trendVal ? trendVal : '--');
-      trendTextEl.style.color = trendInfo ? statusColor : 'rgba(255,255,255,0.3)';
+      trendTextEl.style.color = isInRange ? displayColor : 'rgba(255,255,255,0.28)';
     }
 
-    // Time-ago
+    // Time-ago — grey when in range, high_color when stale
     const timeEl = root.getElementById('dg-time-ago');
     if (timeEl && lastUpdate) {
       const mins = Math.floor((Date.now() - new Date(lastUpdate).getTime()) / 60000);
