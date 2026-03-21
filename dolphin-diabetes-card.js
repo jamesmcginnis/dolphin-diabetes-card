@@ -793,12 +793,67 @@ class DolphinDiabetesCardEditor extends HTMLElement {
   _buildEditor() {
     const hass = this._hass, cfg = this._config;
 
+    // ── Smart entity detection ──────────────────────────────────────
+    // Keywords that suggest a glucose reading sensor
+    const glucoseKeywords  = ['glucose', 'blood_sugar', 'blood sugar', 'cgm', 'dexcom', 'nightscout', 'xdrip', 'sugar', 'libre', 'mg_dl', 'mmol'];
+    // Keywords that suggest a trend sensor
+    const trendKeywords    = ['trend', 'direction', 'arrow', 'slope'];
+
     const allEntities = Object.keys(hass.states).sort();
-    const entityOptions = val => `<option value="">— None —</option>` +
-      allEntities.map(e => {
+
+    // Filtered lists — sensors only, scored by keyword relevance
+    const scoreEntity = (id, keywords) => {
+      const name  = (hass.states[id]?.attributes?.friendly_name || '').toLowerCase();
+      const idLow = id.toLowerCase();
+      return keywords.reduce((s, k) => s + (idLow.includes(k) || name.includes(k) ? 1 : 0), 0);
+    };
+
+    // Glucose candidates: sensor domain, numeric state, glucose-related name
+    const glucoseCandidates = allEntities
+      .filter(e => e.startsWith('sensor.') && !isNaN(parseFloat(hass.states[e]?.state)))
+      .map(e => ({ e, score: scoreEntity(e, glucoseKeywords) }))
+      .sort((a, b) => b.score - a.score || a.e.localeCompare(b.e));
+
+    // Trend candidates: any sensor with trend-like name or non-numeric state
+    const trendCandidates = allEntities
+      .filter(e => e.startsWith('sensor.'))
+      .map(e => ({ e, score: scoreEntity(e, trendKeywords) }))
+      .sort((a, b) => b.score - a.score || a.e.localeCompare(b.e));
+
+    // Auto-detect: if no entity is configured yet, pre-select the top-scoring match
+    let glucoseVal = cfg.glucose_entity || '';
+    let trendVal   = cfg.trend_entity   || '';
+    if (!glucoseVal && glucoseCandidates.length && glucoseCandidates[0].score > 0) {
+      glucoseVal = glucoseCandidates[0].e;
+      this._updateConfig('glucose_entity', glucoseVal);
+    }
+    if (!trendVal && trendCandidates.length && trendCandidates[0].score > 0) {
+      trendVal = trendCandidates[0].e;
+      this._updateConfig('trend_entity', trendVal);
+    }
+
+    // Build option HTML — suggested entities first, then a divider, then all sensors
+    const buildOptions = (candidates, allSensorEntities, selectedVal) => {
+      const candidateIds = new Set(candidates.map(c => c.e));
+      const suggested = candidates.map(({ e }) => {
         const name = hass.states[e]?.attributes?.friendly_name || e;
-        return `<option value="${e}" ${e === val ? 'selected' : ''}>${name} (${e})</option>`;
+        return `<option value="${e}" ${e === selectedVal ? 'selected' : ''}>${name} (${e})</option>`;
       }).join('');
+
+      const rest = allSensorEntities
+        .filter(e => !candidateIds.has(e))
+        .map(e => {
+          const name = hass.states[e]?.attributes?.friendly_name || e;
+          return `<option value="${e}" ${e === selectedVal ? 'selected' : ''}>${name} (${e})</option>`;
+        }).join('');
+
+      const divider = suggested && rest ? `<option disabled>──────────────────</option>` : '';
+      return `<option value="">— None —</option>${suggested}${divider}${rest}`;
+    };
+
+    const allSensors = allEntities.filter(e => e.startsWith('sensor.'));
+    const glucoseOptions = buildOptions(glucoseCandidates, allSensors, glucoseVal);
+    const trendOptions   = buildOptions(trendCandidates,   allSensors, trendVal);
 
     const COLOUR_FIELDS = this._getColourFields();
     const isMMol = cfg.unit !== 'mgdl';
@@ -813,6 +868,16 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         .select-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
         .select-row label { font-size: 13px; font-weight: 600; color: var(--primary-text-color); }
         .hint { font-size: 11px; color: #888; }
+        /* Entity search filter */
+        .entity-search {
+          background: var(--secondary-background-color,rgba(0,0,0,0.06));
+          color: var(--primary-text-color); border: 1px solid rgba(128,128,128,0.2);
+          border-radius: 8px 8px 0 0; border-bottom: none;
+          padding: 8px 12px; font-size: 12px; width: 100%;
+          outline: none; font-family: inherit;
+        }
+        .entity-search::placeholder { color: rgba(128,128,128,0.6); }
+        .entity-search + select { border-radius: 0 0 8px 8px; }
         select, input[type="text"], input[type="number"] {
           width: 100%; background: var(--secondary-background-color,rgba(0,0,0,0.06));
           color: var(--primary-text-color); border: 1px solid rgba(128,128,128,0.2);
@@ -875,16 +940,17 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         <!-- Entities -->
         <div>
           <div class="section-title">Sensor Entities</div>
+          <div class="hint" style="margin-bottom:6px;">Suggested sensors appear first. Type to filter the list.</div>
           <div class="card-block">
             <div class="select-row">
               <label>Blood Glucose Sensor</label>
-              <div class="hint">Sensor providing the current glucose reading</div>
-              <select id="glucose_entity">${entityOptions(cfg.glucose_entity)}</select>
+              <input class="entity-search" id="glucose_search" placeholder="🔍  Filter sensors…" autocomplete="off" spellcheck="false">
+              <select id="glucose_entity">${glucoseOptions}</select>
             </div>
             <div class="select-row" style="border-top:1px solid rgba(128,128,128,0.1)">
               <label>Trend Sensor</label>
-              <div class="hint">Sensor providing the trend direction (rising, flat, falling…)</div>
-              <select id="trend_entity">${entityOptions(cfg.trend_entity)}</select>
+              <input class="entity-search" id="trend_search" placeholder="🔍  Filter sensors…" autocomplete="off" spellcheck="false">
+              <select id="trend_entity">${trendOptions}</select>
             </div>
           </div>
         </div>
@@ -1069,6 +1135,22 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     get('glucose_entity').onchange  = e => this._updateConfig('glucose_entity', e.target.value);
     get('trend_entity').onchange    = e => this._updateConfig('trend_entity',   e.target.value);
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.onchange = () => this._updateConfig('unit', r.value); });
+
+    // Search/filter for entity dropdowns
+    const wireSearch = (searchId, selectId) => {
+      const searchEl = get(searchId), selectEl = get(selectId);
+      if (!searchEl || !selectEl) return;
+      const allOptions = Array.from(selectEl.options);
+      searchEl.addEventListener('input', () => {
+        const term = searchEl.value.toLowerCase().trim();
+        Array.from(selectEl.options).forEach(opt => {
+          if (opt.value === '' || opt.disabled) { opt.style.display = ''; return; }
+          opt.style.display = (!term || opt.text.toLowerCase().includes(term) || opt.value.toLowerCase().includes(term)) ? '' : 'none';
+        });
+      });
+    };
+    wireSearch('glucose_search', 'glucose_entity');
+    wireSearch('trend_search',   'trend_entity');
     get('low_threshold').onchange   = e => this._updateConfig('low_threshold',  parseFloat(e.target.value));
     get('high_threshold').onchange  = e => this._updateConfig('high_threshold', parseFloat(e.target.value));
     get('show_title').onchange      = e => this._updateConfig('show_title', e.target.checked);
