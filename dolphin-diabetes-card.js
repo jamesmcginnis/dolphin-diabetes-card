@@ -136,8 +136,8 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!glucoseValues || glucoseValues.length < 2) {
       return `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:12px;">Not enough data</div>`;
     }
-    const W = 400, H = popupMode ? 160 : 96;
-    const pad = { top: 8, right: 8, bottom: 22, left: 8 };
+    const W = 400, H = popupMode ? 160 : 82;
+    const pad = { top: 6, right: 8, bottom: 20, left: 8 };
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
     const lo = this._lo(), hi = this._hi();
@@ -414,7 +414,7 @@ class DolphinDiabetesCard extends HTMLElement {
         ha-card:active { transform: scale(0.993); opacity: 0.9; }
 
         /* Tight inner padding */
-        .dg-inner { padding: 14px 16px 12px; }
+        .dg-inner { padding: 14px 16px 8px; }
 
         /* Header — title left, time right */
         .dg-header {
@@ -477,9 +477,9 @@ class DolphinDiabetesCard extends HTMLElement {
         /* Graph — tight spacing, no label */
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
-          margin-top: 10px;
+          margin-top: 8px;
         }
-        .dg-graph-inner { height: 78px; position: relative; overflow: visible; }
+        .dg-graph-inner { height: 68px; position: relative; overflow: visible; }
       </style>
 
       <ha-card id="dg-card">
