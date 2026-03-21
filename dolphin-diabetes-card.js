@@ -39,6 +39,11 @@ class DolphinDiabetesCard extends HTMLElement {
       graph_fill_color: '#007AFF',
       show_title: true,
       title: 'Blood Sugar',
+      show_sensor_life: false,
+      sensor_start_date: '',
+      sensor_duration_days: 14,
+      sensor_pill_bg: '#2c2c2e',
+      sensor_pill_text: '#ffffff',
     };
   }
 
@@ -60,6 +65,11 @@ class DolphinDiabetesCard extends HTMLElement {
       graph_fill_color: '#007AFF',
       show_title: true,
       title: 'Blood Sugar',
+      show_sensor_life: false,
+      sensor_start_date: '',
+      sensor_duration_days: 14,
+      sensor_pill_bg: '#2c2c2e',
+      sensor_pill_text: '#ffffff',
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
@@ -83,6 +93,17 @@ class DolphinDiabetesCard extends HTMLElement {
 
   _lo() { return parseFloat(this._config.low_threshold)  || (this._config.unit === 'mgdl' ? 70  : 3.9);  }
   _hi() { return parseFloat(this._config.high_threshold) || (this._config.unit === 'mgdl' ? 180 : 10.0); }
+
+  _getSensorDaysLeft() {
+    const { sensor_start_date, sensor_duration_days } = this._config;
+    if (!sensor_start_date) return null;
+    const start    = new Date(sensor_start_date);
+    if (isNaN(start.getTime())) return null;
+    const duration = parseInt(sensor_duration_days) || 14;
+    const end      = new Date(start.getTime() + duration * 86400000);
+    const left     = Math.ceil((end - Date.now()) / 86400000);
+    return left;
+  }
 
   _formatGlucose(val) {
     const n = parseFloat(val);
@@ -159,8 +180,8 @@ class DolphinDiabetesCard extends HTMLElement {
     let xLabels = '';
     if (timestamps && timestamps.length >= 2) {
       const fmt = ts => { try { const d = new Date(ts); return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; } catch { return ''; } };
-      xLabels = `<text x="${pad.left+2}" y="${H-6}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="start">${fmt(timestamps[0])}</text>
-        <text x="${W-pad.right-2}" y="${H-6}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="end">${fmt(timestamps[timestamps.length-1])}</text>`;
+      xLabels = `<text x="${pad.left+2}" y="${H-9}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="start">${fmt(timestamps[0])}</text>
+        <text x="${W-pad.right-2}" y="${H-9}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="end">${fmt(timestamps[timestamps.length-1])}</text>`;
     }
 
     const lastX = xs[xs.length-1], lastY = ys[ys.length-1];
@@ -471,8 +492,22 @@ class DolphinDiabetesCard extends HTMLElement {
           transition: color 0.4s; padding: 8px;
         }
 
-        /* Centre spacer between rings */
-        .dg-centre { flex: 1; }
+        /* Centre — sensor life pill or plain spacer */
+        .dg-centre { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .dg-sensor-pill {
+          display: flex; flex-direction: column; align-items: center;
+          padding: 6px 12px; border-radius: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+          transition: background 0.4s, color 0.4s;
+          animation: dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite;
+        }
+        .dg-sensor-pill-days {
+          font-size: 18px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
+        }
+        .dg-sensor-pill-label {
+          font-size: 8px; font-weight: 600; letter-spacing: 0.05em;
+          text-transform: uppercase; margin-top: 2px; opacity: 0.7;
+        }
 
         /* Graph — tight spacing, no label */
         .dg-graph-wrap {
@@ -508,8 +543,10 @@ class DolphinDiabetesCard extends HTMLElement {
               </div>
             </div>
 
-            <!-- Centre spacer -->
-            <div class="dg-centre"></div>
+            <!-- Centre: sensor life pill (hidden when not configured) -->
+            <div class="dg-centre">
+              <div class="dg-sensor-pill" id="dg-sensor-pill" style="display:none;"></div>
+            </div>
 
             <!-- Trend ring -->
             <div class="dg-trend-ring-block">
@@ -628,6 +665,32 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
+    // Sensor life pill
+    const pillEl = root.getElementById('dg-sensor-pill');
+    if (pillEl) {
+      const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
+      if (showPill) {
+        const daysLeft = this._getSensorDaysLeft();
+        const bg   = this._config.sensor_pill_bg   || '#2c2c2e';
+        const col  = this._config.sensor_pill_text || '#ffffff';
+        const label = daysLeft === null ? '?' : daysLeft <= 0 ? 'Expired' : `${daysLeft}`;
+        const sub   = daysLeft !== null && daysLeft > 0 ? 'days left' : daysLeft === 0 ? 'today' : '';
+        // Urgent colour when 2 days or fewer remaining
+        const urgent = daysLeft !== null && daysLeft <= 2;
+        const pillBg  = urgent ? this._config.high_color + '33' : bg;
+        const pillCol = urgent ? this._config.high_color         : col;
+        pillEl.style.display     = 'flex';
+        pillEl.style.background  = pillBg;
+        pillEl.style.setProperty('--dg-ring-color', pillCol);
+        pillEl.innerHTML = `
+          <span class="dg-sensor-pill-days" style="color:${pillCol};">${label}</span>
+          ${sub ? `<span class="dg-sensor-pill-label" style="color:${pillCol};">${sub}</span>` : ''}
+        `;
+      } else {
+        pillEl.style.display = 'none';
+      }
+    }
+
     // Inline graph
     if (this._config.show_graph) {
       const graphInner = root.getElementById('dg-graph-inner');
@@ -674,13 +737,16 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     const setVal = (id, val) => { const el = root.getElementById(id); if (el) el.value = val; };
     const setChk = (id, val) => { const el = root.getElementById(id); if (el) el.checked = !!val; };
 
-    setVal('glucose_entity',  cfg.glucose_entity  || '');
-    setVal('trend_entity',    cfg.trend_entity    || '');
-    setVal('title',           cfg.title           || 'Blood Sugar');
-    setVal('low_threshold',   cfg.low_threshold   ?? 3.9);
-    setVal('high_threshold',  cfg.high_threshold  ?? 10.0);
-    setChk('show_graph',      cfg.show_graph  !== false);
-    setChk('show_title',      cfg.show_title  !== false);
+    setVal('glucose_entity',        cfg.glucose_entity        || '');
+    setVal('trend_entity',          cfg.trend_entity          || '');
+    setVal('title',                 cfg.title                 || 'Blood Sugar');
+    setVal('low_threshold',         cfg.low_threshold         ?? 3.9);
+    setVal('high_threshold',        cfg.high_threshold        ?? 10.0);
+    setVal('sensor_start_date',     cfg.sensor_start_date     || '');
+    setVal('sensor_duration_days',  cfg.sensor_duration_days  ?? 14);
+    setChk('show_graph',            cfg.show_graph  !== false);
+    setChk('show_title',            cfg.show_title  !== false);
+    setChk('show_sensor_life',      cfg.show_sensor_life === true);
 
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = r.value === (cfg.unit || 'mmol'); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = parseInt(r.value) === parseInt(cfg.graph_hours || 3); });
@@ -703,10 +769,12 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range', default: '#34C759' },
       { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',      default: '#FF3B30' },
       { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500' },
-      { key: 'graph_line_color', label: 'Graph Line',       desc: 'Graph line colour',               default: '#007AFF' },
-      { key: 'graph_fill_color', label: 'Graph Fill',       desc: 'Graph area fill colour',          default: '#007AFF' },
-      { key: 'card_bg',          label: 'Card Background',  desc: 'Card background colour',          default: '#1c1c1e' },
-      { key: 'text_color',       label: 'Text Colour',      desc: 'Primary text colour',             default: '#ffffff' },
+      { key: 'graph_line_color',    label: 'Graph Line',          desc: 'Graph line colour',                default: '#007AFF' },
+      { key: 'graph_fill_color',    label: 'Graph Fill',           desc: 'Graph area fill colour',           default: '#007AFF' },
+      { key: 'sensor_pill_bg',      label: 'Sensor Pill BG',       desc: 'Sensor life pill background',      default: '#2c2c2e' },
+      { key: 'sensor_pill_text',    label: 'Sensor Pill Text',     desc: 'Sensor life pill text colour',     default: '#ffffff' },
+      { key: 'card_bg',             label: 'Card Background',      desc: 'Card background colour',           default: '#1c1c1e' },
+      { key: 'text_color',          label: 'Text Colour',          desc: 'Primary text colour',              default: '#ffffff' },
     ];
   }
 
@@ -855,6 +923,35 @@ class DolphinDiabetesCardEditor extends HTMLElement {
                   <input type="checkbox" id="show_graph" ${cfg.show_graph !== false ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
+              <div class="toggle-item">
+                <div>
+                  <div class="toggle-label">Show Sensor Life</div>
+                  <div class="toggle-sublabel">Days remaining pill between the two rings</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="show_sensor_life" ${cfg.show_sensor_life ? 'checked' : ''}><span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sensor Life Details -->
+        <div id="sensor_life_section" style="${cfg.show_sensor_life ? '' : 'display:none'}">
+          <div class="section-title">Sensor Life</div>
+          <div class="card-block">
+            <div class="input-row">
+              <div class="hint" style="margin-bottom:4px;">Enter the date you applied your current sensor and how many days it lasts</div>
+              <div class="threshold-row">
+                <div>
+                  <label>Sensor start date</label>
+                  <input type="date" id="sensor_start_date" value="${cfg.sensor_start_date || ''}" style="background-image:none;padding-right:12px;cursor:text;">
+                </div>
+                <div>
+                  <label>Sensor lasts (days)</label>
+                  <input type="number" id="sensor_duration_days" min="1" max="30" step="1" value="${cfg.sensor_duration_days ?? 14}">
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -963,6 +1060,13 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       const s = root.getElementById('graph_hours_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
     };
+    get('show_sensor_life').onchange = e => {
+      this._updateConfig('show_sensor_life', e.target.checked);
+      const s = root.getElementById('sensor_life_section');
+      if (s) s.style.display = e.target.checked ? '' : 'none';
+    };
+    get('sensor_start_date').onchange    = e => this._updateConfig('sensor_start_date',    e.target.value);
+    get('sensor_duration_days').onchange = e => this._updateConfig('sensor_duration_days', parseInt(e.target.value));
     get('title').oninput = e => this._updateConfig('title', e.target.value);
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.onchange = () => this._updateConfig('graph_hours', parseInt(r.value)); });
     get('card_bg_opacity').oninput  = e => {
