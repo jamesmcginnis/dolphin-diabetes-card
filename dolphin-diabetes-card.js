@@ -756,6 +756,12 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = r.value === (cfg.unit || 'mmol'); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = parseInt(r.value) === parseInt(cfg.graph_hours || 3); });
 
+    // Keep dependent sections visible/hidden in sync with their toggle state
+    const graphSection  = root.getElementById('graph_hours_section');
+    const sensorSection = root.getElementById('sensor_life_section');
+    if (graphSection)  graphSection.style.display  = cfg.show_graph        !== false ? '' : 'none';
+    if (sensorSection) sensorSection.style.display = cfg.show_sensor_life  === true  ? '' : 'none';
+
     for (const field of this._getColourFields()) {
       const card = root.querySelector(`.colour-card[data-key="${field.key}"]`);
       if (!card) continue;
