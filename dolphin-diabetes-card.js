@@ -810,6 +810,11 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
         }
         input[type="text"], input[type="number"] { background-image: none; padding-right: 12px; cursor: text; }
+        input[type="date"] {
+          background-image: none; padding-right: 12px; cursor: pointer;
+          -webkit-appearance: auto; appearance: auto;
+          color-scheme: dark;
+        }
         .toggle-list { display: flex; flex-direction: column; }
         .toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid rgba(128,128,128,0.1); min-height: 52px; }
         .toggle-item:last-child { border-bottom: none; }
@@ -945,7 +950,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
               <div class="threshold-row">
                 <div>
                   <label>Sensor start date</label>
-                  <input type="date" id="sensor_start_date" value="${cfg.sensor_start_date || ''}" style="background-image:none;padding-right:12px;cursor:text;">
+                  <input type="date" id="sensor_start_date" value="${cfg.sensor_start_date || ''}">
                 </div>
                 <div>
                   <label>Sensor lasts (days)</label>
