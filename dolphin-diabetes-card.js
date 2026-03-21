@@ -1125,6 +1125,40 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     }
 
     this._setupListeners();
+
+    // Wire search filters here (needs hass & data arrays in scope)
+    const root2 = this.shadowRoot;
+    const wireSearch = (searchId, selectId, allData) => {
+      const searchEl = root2.getElementById(searchId);
+      const selectEl = root2.getElementById(selectId);
+      if (!searchEl || !selectEl) return;
+      searchEl.addEventListener('input', () => {
+        const term = searchEl.value.toLowerCase().trim();
+        const current = selectEl.value;
+        const matches = term
+          ? allData.filter(d => d.id.toLowerCase().includes(term) || d.name.toLowerCase().includes(term))
+          : allData;
+        selectEl.innerHTML = `<option value="">— None —</option>` +
+          matches.map(d =>
+            `<option value="${d.id}" ${d.id === current ? 'selected' : ''}>${d.suggested ? '★ ' : ''}${d.name} (${d.id})</option>`
+          ).join('');
+      });
+    };
+
+    const allSensors2 = Object.keys(hass.states)
+      .filter(e => e.startsWith('sensor.')).sort()
+      .map(e => ({ id: e, name: hass.states[e]?.attributes?.friendly_name || e, suggested: false }));
+    const scoreKw = (id, name, kws) => kws.reduce((s, k) => s + (id.includes(k) || name.includes(k) ? 1 : 0), 0);
+    const glucoseKws = ['glucose','blood_sugar','blood sugar','cgm','dexcom','nightscout','xdrip','sugar','libre','mg_dl','mmol'];
+    const trendKws   = ['trend','direction','arrow','slope'];
+    const glucoseData2 = allSensors2.map(d => ({ ...d, suggested: scoreKw(d.id.toLowerCase(), d.name.toLowerCase(), glucoseKws) > 0 }))
+      .sort((a, b) => (b.suggested ? 1 : 0) - (a.suggested ? 1 : 0) || a.id.localeCompare(b.id));
+    const trendData2 = allSensors2.map(d => ({ ...d, suggested: scoreKw(d.id.toLowerCase(), d.name.toLowerCase(), trendKws) > 0 }))
+      .sort((a, b) => (b.suggested ? 1 : 0) - (a.suggested ? 1 : 0) || a.id.localeCompare(b.id));
+
+    wireSearch('glucose_search', 'glucose_entity', glucoseData2);
+    wireSearch('trend_search',   'trend_entity',   trendData2);
+
     this.updateUI();
   }
 
@@ -1136,21 +1170,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     get('trend_entity').onchange    = e => this._updateConfig('trend_entity',   e.target.value);
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.onchange = () => this._updateConfig('unit', r.value); });
 
-    // Search/filter for entity dropdowns
-    const wireSearch = (searchId, selectId) => {
-      const searchEl = get(searchId), selectEl = get(selectId);
-      if (!searchEl || !selectEl) return;
-      const allOptions = Array.from(selectEl.options);
-      searchEl.addEventListener('input', () => {
-        const term = searchEl.value.toLowerCase().trim();
-        Array.from(selectEl.options).forEach(opt => {
-          if (opt.value === '' || opt.disabled) { opt.style.display = ''; return; }
-          opt.style.display = (!term || opt.text.toLowerCase().includes(term) || opt.value.toLowerCase().includes(term)) ? '' : 'none';
-        });
-      });
-    };
-    wireSearch('glucose_search', 'glucose_entity');
-    wireSearch('trend_search',   'trend_entity');
     get('low_threshold').onchange   = e => this._updateConfig('low_threshold',  parseFloat(e.target.value));
     get('high_threshold').onchange  = e => this._updateConfig('high_threshold', parseFloat(e.target.value));
     get('show_title').onchange      = e => this._updateConfig('show_title', e.target.checked);
