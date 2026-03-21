@@ -44,6 +44,8 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_duration_days: 14,
       sensor_pill_bg: '#2c2c2e',
       sensor_pill_text: '#ffffff',
+      sensor_pill_normal_color: '#34C759',
+      sensor_pill_urgent_color: '#FF3B30',
     };
   }
 
@@ -70,6 +72,8 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_duration_days: 14,
       sensor_pill_bg: '#2c2c2e',
       sensor_pill_text: '#ffffff',
+      sensor_pill_normal_color: '#34C759',
+      sensor_pill_urgent_color: '#FF3B30',
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
@@ -671,14 +675,15 @@ class DolphinDiabetesCard extends HTMLElement {
       const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
       if (showPill) {
         const daysLeft = this._getSensorDaysLeft();
-        const bg   = this._config.sensor_pill_bg   || '#2c2c2e';
-        const col  = this._config.sensor_pill_text || '#ffffff';
+        const bg           = this._config.sensor_pill_bg           || '#2c2c2e';
+        const normalColor  = this._config.sensor_pill_normal_color || '#34C759';
+        const urgentColor  = this._config.sensor_pill_urgent_color || '#FF3B30';
         const label = daysLeft === null ? '?' : daysLeft <= 0 ? 'Expired' : `${daysLeft}`;
         const sub   = daysLeft !== null && daysLeft > 0 ? 'days left' : daysLeft === 0 ? 'today' : '';
-        // Urgent colour when 2 days or fewer remaining
-        const urgent = daysLeft !== null && daysLeft <= 2;
-        const pillBg  = urgent ? this._config.high_color + '33' : bg;
-        const pillCol = urgent ? this._config.high_color         : col;
+        // Use urgent colour when exactly 1 day left or expired
+        const isUrgent = daysLeft !== null && daysLeft <= 1;
+        const pillCol  = isUrgent ? urgentColor : normalColor;
+        const pillBg   = bg;
         pillEl.style.display     = 'flex';
         pillEl.style.background  = pillBg;
         pillEl.style.setProperty('--dg-ring-color', pillCol);
@@ -771,8 +776,9 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500' },
       { key: 'graph_line_color',    label: 'Graph Line',          desc: 'Graph line colour',                default: '#007AFF' },
       { key: 'graph_fill_color',    label: 'Graph Fill',           desc: 'Graph area fill colour',           default: '#007AFF' },
-      { key: 'sensor_pill_bg',      label: 'Sensor Pill BG',       desc: 'Sensor life pill background',      default: '#2c2c2e' },
-      { key: 'sensor_pill_text',    label: 'Sensor Pill Text',     desc: 'Sensor life pill text colour',     default: '#ffffff' },
+      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',       desc: 'Sensor life pill background',              default: '#2c2c2e' },
+      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',      desc: 'Pill text colour when days remain',         default: '#34C759' },
+      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',    desc: 'Pill text colour when 1 day or less left',  default: '#FF3B30' },
       { key: 'card_bg',             label: 'Card Background',      desc: 'Card background colour',           default: '#1c1c1e' },
       { key: 'text_color',          label: 'Text Colour',          desc: 'Primary text colour',              default: '#ffffff' },
     ];
