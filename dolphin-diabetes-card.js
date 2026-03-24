@@ -234,9 +234,16 @@ class DolphinDiabetesCard extends HTMLElement {
     this._popupHours = parseInt(cfg.graph_hours) || 3;
 
     const hexBg = cfg.card_bg || '#1c1c1e';
-    const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
-    const bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
-    const popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${Math.min(1, bgOpacity + 0.12)})`;
+    let popupBg;
+    if (/^#[0-9a-fA-F]{8}$/.test(hexBg)) {
+      const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
+      const aa = Math.min(1, parseInt(hexBg.slice(7,9),16) / 255 + 0.12);
+      popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${aa.toFixed(3)})`;
+    } else {
+      const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
+      const bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
+      popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${Math.min(1, bgOpacity + 0.12)})`;
+    }
 
     let timeAgoStr = '--';
     if (lastUpdate) {
@@ -411,10 +418,17 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!this._config) return;
     const cfg = this._config;
     const accent = cfg.accent_color;
-    const bgOpacity  = (parseInt(cfg.card_bg_opacity) || 80) / 100;
     const hexBg = cfg.card_bg || '#1c1c1e';
-    const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
-    const cardBgRgba = `rgba(${rr},${gg},${bb},${bgOpacity})`;
+    let cardBgRgba;
+    if (/^#[0-9a-fA-F]{8}$/.test(hexBg)) {
+      const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
+      const aa = (parseInt(hexBg.slice(7,9),16) / 255).toFixed(3);
+      cardBgRgba = `rgba(${rr},${gg},${bb},${aa})`;
+    } else {
+      const bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
+      const rr = parseInt(hexBg.slice(1,3),16) || 0, gg = parseInt(hexBg.slice(3,5),16) || 0, bb = parseInt(hexBg.slice(5,7),16) || 0;
+      cardBgRgba = `rgba(${rr},${gg},${bb},${bgOpacity})`;
+    }
     const circ = 2 * Math.PI * 34;
 
     this.shadowRoot.innerHTML = `
@@ -776,17 +790,17 @@ class DolphinDiabetesCardEditor extends HTMLElement {
 
   _getColourFields() {
     return [
-      { key: 'accent_color',     label: 'Accent',          desc: 'Ring & icon highlight',           default: '#007AFF' },
-      { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range', default: '#34C759' },
-      { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',      default: '#FF3B30' },
-      { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500' },
-      { key: 'graph_line_color',    label: 'Graph Line',          desc: 'Graph line colour',                default: '#007AFF' },
-      { key: 'graph_fill_color',    label: 'Graph Fill',           desc: 'Graph area fill colour',           default: '#007AFF' },
-      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',       desc: 'Sensor life pill background',              default: '#2c2c2e' },
-      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',      desc: 'Pill text colour when days remain',         default: '#34C759' },
-      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',    desc: 'Pill text colour when 1 day or less left',  default: '#FF3B30' },
-      { key: 'card_bg',             label: 'Card Background',      desc: 'Card background colour',           default: '#1c1c1e' },
-      { key: 'text_color',          label: 'Text Colour',          desc: 'Primary text colour',              default: '#ffffff' },
+      { key: 'accent_color',     label: 'Accent',          desc: 'Ring & icon highlight',           default: '#007AFF', maxlen: 7 },
+      { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range', default: '#34C759', maxlen: 7 },
+      { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',      default: '#FF3B30', maxlen: 7 },
+      { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500', maxlen: 7 },
+      { key: 'graph_line_color',    label: 'Graph Line',          desc: 'Graph line colour',                default: '#007AFF', maxlen: 7 },
+      { key: 'graph_fill_color',    label: 'Graph Fill',           desc: 'Graph area fill colour',           default: '#007AFF', maxlen: 7 },
+      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',       desc: 'Sensor life pill background',              default: '#2c2c2e', maxlen: 9 },
+      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',      desc: 'Pill text colour when days remain',         default: '#34C759', maxlen: 7 },
+      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',    desc: 'Pill text colour when 1 day or less left',  default: '#FF3B30', maxlen: 7 },
+      { key: 'card_bg',             label: 'Card Background',      desc: '#00000000 = transparent glass. 8-digit hex for custom opacity — e.g. #1c1c1e80', default: '#1c1c1e', maxlen: 9 },
+      { key: 'text_color',          label: 'Text Colour',          desc: 'Primary text colour',              default: '#ffffff', maxlen: 7 },
     ];
   }
 
@@ -1102,7 +1116,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           <div class="colour-desc">${field.desc}</div>
           <div class="colour-hex-row">
             <div class="colour-dot" style="background:${savedVal}"></div>
-            <input class="colour-hex" type="text" value="${savedVal}" maxlength="7" placeholder="${field.default}" spellcheck="false">
+            <input class="colour-hex" type="text" value="${savedVal}" maxlength="${field.maxlen || 7}" placeholder="${field.default}" spellcheck="false">
             <span class="colour-edit-icon">✎</span>
           </div>
         </div>`;
@@ -1118,8 +1132,8 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       };
       picker.addEventListener('input',  () => apply(picker.value));
       picker.addEventListener('change', () => apply(picker.value));
-      hexIn.addEventListener('input',   () => { const v = hexIn.value.trim(); if (/^#[0-9a-fA-F]{6}$/.test(v)) apply(v); });
-      hexIn.addEventListener('blur',    () => { const cur = this._config[field.key] || field.default; if (!/^#[0-9a-fA-F]{6}$/.test(hexIn.value.trim())) hexIn.value = cur; });
+      hexIn.addEventListener('input',   () => { const v = hexIn.value.trim(); if (/^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{8}$/.test(v)) apply(v); });
+      hexIn.addEventListener('blur',    () => { const cur = this._config[field.key] || field.default; if (!/^#[0-9a-fA-F]{6,8}$/.test(hexIn.value.trim())) hexIn.value = cur; });
       hexIn.addEventListener('keydown', e => { if (e.key === 'Enter') hexIn.blur(); });
       grid.appendChild(card);
     }
