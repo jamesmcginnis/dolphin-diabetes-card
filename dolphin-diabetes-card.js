@@ -46,6 +46,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF3B30',
+      breathing_effect: true,
     };
   }
 
@@ -74,6 +75,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF3B30',
+      breathing_effect: true,
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
@@ -486,7 +488,7 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         .dg-ring-block, .dg-trend-ring-block {
           position: relative; flex-shrink: 0; width: 80px; height: 80px;
-          animation: dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite;
+          animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
         }
         .dg-ring-block svg, .dg-trend-ring-block svg {
           position: absolute; top: 0; left: 0;
@@ -517,7 +519,7 @@ class DolphinDiabetesCard extends HTMLElement {
           padding: 6px 12px; border-radius: 20px;
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
           transition: background 0.4s, color 0.4s;
-          animation: dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite;
+          animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
         }
         .dg-sensor-pill-days {
           font-size: 18px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
@@ -1029,6 +1031,15 @@ class DolphinDiabetesCardEditor extends HTMLElement {
                   <input type="checkbox" id="show_sensor_life" ${cfg.show_sensor_life ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
+              <div class="toggle-item">
+                <div>
+                  <div class="toggle-label">Breathing Effect</div>
+                  <div class="toggle-sublabel">Pulsing glow animation on the rings</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="breathing_effect" ${cfg.breathing_effect !== false ? 'checked' : ''}><span class="toggle-track"></span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -1197,6 +1208,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       const s = root.getElementById('sensor_life_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
     };
+    get('breathing_effect').onchange = e => this._updateConfig('breathing_effect', e.target.checked);
     get('sensor_start_date').onchange    = e => this._updateConfig('sensor_start_date',    e.target.value);
     get('sensor_duration_days').onchange = e => this._updateConfig('sensor_duration_days', parseInt(e.target.value));
     get('title').oninput = e => this._updateConfig('title', e.target.value);
