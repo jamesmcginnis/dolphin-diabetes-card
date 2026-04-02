@@ -6,15 +6,13 @@ A sleek Home Assistant dashboard card for monitoring blood glucose levels at a g
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview2.png" width="48%" />
-  &nbsp;
-  <img src="https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview3.png" width="48%" />
 </p>
 
 ---
 
 ## What it shows
 
-- **Glucose ring** — animated ring on the left fills and colour-codes your current reading (green in range, red low, amber high), with a gentle breathing glow
+- **Glucose ring** — animated ring on the left fills and colour-codes your current reading (green in range, red low, amber high), with an optional breathing glow
 - **Trend ring** — matching ring on the right shows direction (Rising Fast → Steady → Falling Fast) via fill level and label, no arrows
 - **Sensor life pill** — optional countdown between the rings showing days remaining on your current sensor; turns red on the last day with its own breathing glow
 - **History graph** — colour-coded line segments with threshold guide lines, fetched from your HA history
@@ -27,7 +25,7 @@ A single tap opens a detail popup with a large reading, trend ring, a 1h/3h/6h/1
 
 ## Configuration
 
-Everything is configurable through the built-in visual editor — no YAML needed. Options include sensor entity pickers, unit toggle (mmol/L or mg/dL), alert thresholds, show/hide graph with time range selector, sensor life countdown with start date and duration, and full colour control across rings, graph, sensor pill, and card background.
+Everything is configurable through the built-in visual editor — no YAML needed. Options include sensor entity pickers, unit toggle (mmol/L or mg/dL), alert thresholds, show/hide graph with time range selector, breathing effect toggle, sensor life countdown with start date and duration, and full colour control across rings, graph, sensor pill, and card background.
 
 ## Supported integrations
 
