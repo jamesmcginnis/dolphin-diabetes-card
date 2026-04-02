@@ -1,6 +1,6 @@
 # 🐬 Dolphin Diabetes Card
 
-A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, breathing animated rings, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
+A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, optionally animated breathing rings, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
@@ -12,15 +12,13 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview2.png" width="48%" />
-  &nbsp;
-  <img src="https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview3.png" width="48%" />
 </p>
 
 ---
 
 ## ✨ Features
 
-- **Dual breathing rings** — glucose level ring on the left, trend direction ring on the right, both with a gentle animated glow that pulses in the current status colour
+- **Dual animated rings** — glucose level ring on the left, trend direction ring on the right, with an optional breathing glow that pulses in the current status colour
 - **Colour-coded readings** — green in range · red when low · amber when high, applied to both rings, the glucose number, and the trend label
 - **Sensor unavailable state** — everything fades to grey when the sensor is offline or unavailable
 - **Sensor life countdown** — optional pill between the rings showing days remaining on your current sensor, turns red on the last day
@@ -86,6 +84,7 @@ Everything else can be configured through the built-in visual editor. For manual
 | `title` | `string` | `Blood Sugar` | Card title text |
 | `show_graph` | `boolean` | `true` | Show the historical blood sugar graph on the card |
 | `graph_hours` | `1\|3\|6\|12\|24` | `3` | Default hours of history to display |
+| `breathing_effect` | `boolean` | `true` | Enable the pulsing glow animation on the rings and sensor pill |
 | `show_sensor_life` | `boolean` | `false` | Show the sensor life countdown pill |
 | `sensor_start_date` | `string` | — | Date you applied the current sensor (YYYY-MM-DD) |
 | `sensor_duration_days` | `number` | `14` | How many days the sensor lasts |
@@ -115,6 +114,7 @@ show_title: true
 title: Blood Sugar
 show_graph: true
 graph_hours: 3
+breathing_effect: true
 show_sensor_life: true
 sensor_start_date: "2026-03-14"
 sensor_duration_days: 14
