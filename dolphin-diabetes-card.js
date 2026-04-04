@@ -390,6 +390,260 @@ class DolphinDiabetesCard extends HTMLElement {
     }, 180);
   }
 
+  // ── Shared popup scaffolding ───────────────────────────────────────
+
+  _makePopupShell(titleText) {
+    if (this._popupOverlay) this._closePopup();
+
+    const cfg    = this._config;
+    const hexBg  = cfg.card_bg || '#1c1c1e';
+    let popupBg;
+    if (/^#[0-9a-fA-F]{8}$/.test(hexBg)) {
+      const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
+      const aa = Math.min(1, parseInt(hexBg.slice(7,9),16) / 255 + 0.12);
+      popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${aa.toFixed(3)})`;
+    } else {
+      const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
+      const bgOpacity = (parseInt(cfg.card_bg_opacity) || 80) / 100;
+      popupBg = `rgba(${Math.max(0,rr-6)},${Math.max(0,gg-6)},${Math.max(0,bb-6)},${Math.min(1, bgOpacity + 0.12)})`;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'dg-popup-overlay';
+    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);`;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes dgFadeIn  { from{opacity:0} to{opacity:1} }
+      @keyframes dgSlideUp { from{transform:translateY(18px) scale(0.97);opacity:0} to{transform:none;opacity:1} }
+      .dg-popup  { animation: dgSlideUp 0.26s cubic-bezier(0.34,1.3,0.64,1); }
+      #dg-popup-overlay { animation: dgFadeIn 0.2s ease; }
+      .dg-close-btn:hover { background:rgba(255,255,255,0.22)!important; }
+      .dg-info-row  { display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.07); }
+      .dg-info-row:last-child { border-bottom:none; }
+      .dg-info-label { font-size:12px;color:rgba(255,255,255,0.45);font-weight:500; }
+      .dg-info-value { font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);text-align:right; }
+      .dg-trend-hist-row { display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.07); }
+      .dg-trend-hist-row:last-child { border-bottom:none; }
+      .dg-trend-hist-time { font-size:12px;color:rgba(255,255,255,0.42);font-weight:500;font-variant-numeric:tabular-nums;min-width:110px;flex-shrink:0; }
+      .dg-trend-hist-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+      .dg-trend-arrow { font-size:15px;line-height:1; }
+    `;
+
+    const popup = document.createElement('div');
+    popup.className = 'dg-popup';
+    popup.style.cssText = `background:${popupBg};backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,0.15);border-radius:24px;box-shadow:0 24px 64px rgba(0,0,0,0.65);padding:20px;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:${cfg.text_color};`;
+    popup.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
+
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    headerRow.innerHTML = `
+      <span style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);">${titleText}</span>
+      <button class="dg-close-btn" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.65);font-size:15px;line-height:1;padding:0;transition:background 0.15s;flex-shrink:0;">✕</button>`;
+    headerRow.querySelector('.dg-close-btn').addEventListener('click', () => this._closePopup());
+
+    popup.appendChild(style);
+    popup.appendChild(headerRow);
+    overlay.appendChild(popup);
+    overlay.addEventListener('click', e => { if (e.target === overlay) this._closePopup(); });
+    document.body.appendChild(overlay);
+    this._popupOverlay = overlay;
+
+    return { popup, overlay };
+  }
+
+  // ── Trend History Popup ────────────────────────────────────────────
+
+  _trendArrow(deg) {
+    if (deg === 0)   return '↑↑';
+    if (deg <= 45)   return '↑';
+    if (deg <= 67)   return '↗';
+    if (deg <= 90)   return '→';
+    if (deg <= 113)  return '↘';
+    if (deg <= 135)  return '↓';
+    return '↓↓';
+  }
+
+  async _openTrendPopup() {
+    const cfg = this._config;
+    if (!cfg.trend_entity) return;
+
+    const { popup } = this._makePopupShell('Trend History');
+    const statusColor = this._getStatusColor(this._hass?.states[cfg.glucose_entity]?.state);
+
+    // Hero row — current trend
+    const trendState = this._hass?.states[cfg.trend_entity];
+    const trendVal   = trendState?.state || trendState?.attributes?.trend || trendState?.attributes?.trend_description;
+    const trendInfo  = this._getTrendInfo(trendVal);
+    const trendText  = trendInfo?.label || (trendVal ? trendVal : '—');
+    const circ       = 2 * Math.PI * 34;
+    const trendPct   = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
+
+    const heroRow = document.createElement('div');
+    heroRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    heroRow.innerHTML = `
+      <div>
+        <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;color:${statusColor};">${trendInfo ? this._trendArrow(trendInfo.deg) : '—'}</div>
+        <div style="margin-top:4px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.75);">${trendText}</div>
+        <div style="margin-top:2px;font-size:11px;color:rgba(255,255,255,0.35);">Current trend</div>
+      </div>
+      <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+        <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
+          <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+          <circle cx="44" cy="44" r="34" fill="none" stroke="${statusColor}" stroke-width="5" stroke-linecap="round"
+            style="stroke-dasharray:${circ};stroke-dashoffset:${(circ*(1-trendPct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;">
+          <span style="font-size:9.5px;font-weight:700;color:${statusColor};text-align:center;line-height:1.25;">${trendText}</span>
+        </div>
+      </div>`;
+    popup.appendChild(heroRow);
+
+    // Divider
+    const divider = document.createElement('div');
+    divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:12px;';
+    popup.appendChild(divider);
+
+    // History section label
+    const histLabel = document.createElement('div');
+    histLabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px;';
+    histLabel.textContent = 'Recent History';
+    popup.appendChild(histLabel);
+
+    // Loading state
+    const histWrap = document.createElement('div');
+    histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+    popup.appendChild(histWrap);
+
+    // Fetch trend history
+    try {
+      const end   = new Date(), start = new Date(end - 24 * 3600000);
+      const resp  = await this._hass.callApi('GET',
+        `history/period/${start.toISOString()}?filter_entity_id=${cfg.trend_entity}&end_time=${end.toISOString()}&minimal_response=false`
+      );
+      const data = resp?.[0] || [];
+      const valid = data.filter(s => s.state && s.state !== 'unavailable' && s.state !== 'unknown');
+
+      if (valid.length === 0) {
+        histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">No history available</div>`;
+      } else {
+        const rows = [...valid].reverse().slice(0, 50);
+        const fmtTime = ts => {
+          const d = new Date(ts);
+          const now = new Date();
+          const isToday = d.toDateString() === now.toDateString();
+          const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+          const isYesterday = d.toDateString() === yesterday.toDateString();
+          const time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+          if (isToday) return `Today, ${time}`;
+          if (isYesterday) return `Yesterday, ${time}`;
+          return `${d.toLocaleDateString('en-GB', {day:'numeric',month:'short'})}, ${time}`;
+        };
+
+        histWrap.innerHTML = '';
+        rows.forEach((entry, idx) => {
+          const ts     = entry.last_changed || entry.last_updated;
+          const info   = this._getTrendInfo(entry.state);
+          const label  = info?.label || entry.state;
+          const arrow  = info ? this._trendArrow(info.deg) : '';
+          const color  = idx === 0 ? statusColor : 'rgba(255,255,255,0.6)';
+          const bgCol  = idx === 0 ? `${statusColor}18` : 'rgba(255,255,255,0.06)';
+          const row    = document.createElement('div');
+          row.className = 'dg-trend-hist-row';
+          row.innerHTML = `
+            <span class="dg-trend-hist-time">${fmtTime(ts)}</span>
+            <span class="dg-trend-hist-badge" style="background:${bgCol};color:${color};border:1px solid ${idx===0?statusColor+'44':'rgba(255,255,255,0.1)'};">
+              <span class="dg-trend-arrow">${arrow}</span>${label}
+            </span>`;
+          histWrap.appendChild(row);
+        });
+      }
+    } catch {
+      histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">Could not load history</div>`;
+    }
+  }
+
+  // ── Sensor Life Popup ──────────────────────────────────────────────
+
+  _openSensorPopup() {
+    const cfg = this._config;
+    if (!cfg.show_sensor_life || !cfg.sensor_start_date) return;
+
+    const daysLeft    = this._getSensorDaysLeft();
+    const startDate   = new Date(cfg.sensor_start_date);
+    const duration    = parseInt(cfg.sensor_duration_days) || 14;
+    const endDate     = new Date(startDate.getTime() + duration * 86400000);
+    const normalColor = cfg.sensor_pill_normal_color || '#34C759';
+    const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
+    const isUrgent    = daysLeft !== null && daysLeft <= 1;
+    const pillColor   = isUrgent ? urgentColor : normalColor;
+
+    const fmtDate = d => d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const fmtDateTime = d => `${fmtDate(d)} at ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+    const totalHoursLeft  = (endDate - Date.now()) / 3600000;
+    const hoursLeft       = Math.max(0, Math.floor(totalHoursLeft % 24));
+    const pct             = Math.max(0, Math.min(1, (endDate - Date.now()) / (duration * 86400000)));
+    const circ            = 2 * Math.PI * 34;
+
+    let statusText, statusSub;
+    if (daysLeft === null)   { statusText = '?';         statusSub = 'Unknown'; }
+    else if (daysLeft <= 0)  { statusText = 'Expired';   statusSub = 'Replace sensor'; }
+    else if (daysLeft === 1) { statusText = '1 day';     statusSub = `${hoursLeft}h remaining`; }
+    else                     { statusText = `${daysLeft} days`; statusSub = `${hoursLeft}h remaining`; }
+
+    const { popup } = this._makePopupShell('Sensor Life');
+
+    // Hero row
+    const heroRow = document.createElement('div');
+    heroRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    heroRow.innerHTML = `
+      <div>
+        <div style="font-size:34px;font-weight:700;letter-spacing:-1px;color:${pillColor};line-height:1;">${statusText}</div>
+        <div style="margin-top:4px;font-size:12px;color:rgba(255,255,255,0.4);font-weight:500;">${statusSub}</div>
+        <div style="margin-top:6px;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.04em;background:${pillColor}22;color:${pillColor};border:1px solid ${pillColor}44;">
+            ${isUrgent ? (daysLeft <= 0 ? 'Expired' : 'Replace Soon') : 'Active'}
+          </span>
+        </div>
+      </div>
+      <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+        <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
+          <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+          <circle cx="44" cy="44" r="34" fill="none" stroke="${pillColor}" stroke-width="5" stroke-linecap="round"
+            style="stroke-dasharray:${circ};stroke-dashoffset:${(circ*(1-pct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <span style="font-size:15px;font-weight:700;color:${pillColor};line-height:1;">${daysLeft !== null && daysLeft > 0 ? daysLeft : daysLeft === 0 ? '0' : '?'}</span>
+          <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">days</span>
+        </div>
+      </div>`;
+    popup.appendChild(heroRow);
+
+    // Divider
+    const divider = document.createElement('div');
+    divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:4px;';
+    popup.appendChild(divider);
+
+    // Info rows
+    const infoWrap = document.createElement('div');
+    const rows = [
+      { label: 'Sensor started',  value: fmtDateTime(startDate) },
+      { label: 'Sensor expires',  value: fmtDate(endDate)        },
+      { label: 'Duration',        value: `${duration} days`       },
+    ];
+    if (daysLeft !== null && daysLeft > 0) {
+      rows.push({ label: 'Days remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h` });
+    }
+    rows.forEach(({ label, value }) => {
+      const row = document.createElement('div');
+      row.className = 'dg-info-row';
+      row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value">${value}</span>`;
+      infoWrap.appendChild(row);
+    });
+    popup.appendChild(infoWrap);
+  }
+
   async _loadGraphInto(container, popupMode, hours) {
     if (!this._config.glucose_entity) return;
     const h = hours || this._config.graph_hours || 3;
@@ -489,7 +743,9 @@ class DolphinDiabetesCard extends HTMLElement {
         .dg-ring-block, .dg-trend-ring-block {
           position: relative; flex-shrink: 0; width: 80px; height: 80px;
           animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
+          cursor: pointer;
         }
+        .dg-sensor-pill { cursor: pointer; }
         .dg-ring-block svg, .dg-trend-ring-block svg {
           position: absolute; top: 0; left: 0;
         }
@@ -611,6 +867,30 @@ class DolphinDiabetesCard extends HTMLElement {
     card.addEventListener('touchend',    cancel);
     card.addEventListener('touchcancel', cancel);
     card.addEventListener('click', () => { if (!this._longPressFired) this._openPopup(); });
+
+    // Trend ring — intercept before card-level click
+    const trendBlock = this.shadowRoot.querySelector('.dg-trend-ring-block');
+    if (trendBlock) {
+      trendBlock.addEventListener('click', e => {
+        e.stopPropagation();
+        clearTimeout(this._longPressTimer);
+        if (!this._longPressFired) this._openTrendPopup();
+      });
+      trendBlock.addEventListener('mousedown', e => e.stopPropagation());
+      trendBlock.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    }
+
+    // Sensor pill — intercept before card-level click
+    const pillEl = this.shadowRoot.getElementById('dg-sensor-pill');
+    if (pillEl) {
+      pillEl.addEventListener('click', e => {
+        e.stopPropagation();
+        clearTimeout(this._longPressTimer);
+        if (!this._longPressFired) this._openSensorPopup();
+      });
+      pillEl.addEventListener('mousedown', e => e.stopPropagation());
+      pillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    }
   }
 
   _fireMoreInfo() {
