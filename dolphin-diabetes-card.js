@@ -112,7 +112,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const duration       = parseInt(sensor_duration_days) || 14;
     const end            = new Date(start.getTime() + duration * 86400000);
     const msLeft         = end - Date.now();
-    const daysLeft       = Math.ceil(msLeft / 86400000);
+    const daysLeft       = Math.floor(msLeft / 86400000); // FIX: was Math.ceil — caused days to read 1 too high
     const totalHoursLeft = msLeft / 3600000;
     const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
     const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
@@ -286,7 +286,6 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.style.cssText = `background:${popupBg};backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,0.15);border-radius:24px;box-shadow:0 24px 64px rgba(0,0,0,0.65);padding:20px;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:${cfg.text_color};`;
     popup.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
 
-    // Header
     const headerRow = document.createElement('div');
     headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
     headerRow.innerHTML = `
@@ -294,7 +293,6 @@ class DolphinDiabetesCard extends HTMLElement {
       <button class="dg-close-btn" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.65);font-size:15px;line-height:1;padding:0;transition:background 0.15s;flex-shrink:0;">✕</button>`;
     headerRow.querySelector('.dg-close-btn').addEventListener('click', () => this._closePopup());
 
-    // Big reading row
     const readingRow = document.createElement('div');
     readingRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
 
@@ -328,7 +326,6 @@ class DolphinDiabetesCard extends HTMLElement {
     readingRow.appendChild(readingLeft);
     readingRow.appendChild(trendRight);
 
-    // Segmented time control
     const segWrap = document.createElement('div');
     segWrap.style.cssText = 'display:flex;background:rgba(118,118,128,0.2);border-radius:10px;padding:3px;gap:2px;margin-bottom:12px;';
     [1, 3, 6, 12, 24].forEach(h => {
@@ -345,25 +342,23 @@ class DolphinDiabetesCard extends HTMLElement {
       segWrap.appendChild(btn);
     });
 
-    // Graph
     const graphInner = document.createElement('div');
     graphInner.style.cssText = 'height:130px;position:relative;margin-bottom:14px;';
     graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
 
-    // Info rows
     const infoWrap = document.createElement('div');
     const attrs = glucoseState?.attributes || {};
     const rows = [
-      { label: 'Trend',         value: trendText },
-      { label: 'Last reading',  value: timeAgoStr },
+      { label: 'Trend',        value: trendText },
+      { label: 'Last reading', value: timeAgoStr },
     ];
     const delta = attrs.delta ?? attrs.glucose_delta;
     if (delta !== undefined) {
       const ds = (parseFloat(delta) >= 0 ? '+' : '') + parseFloat(delta).toFixed(this._config.unit === 'mgdl' ? 0 : 1);
       rows.push({ label: 'Change', value: `${ds} ${this._unitLabel()}` });
     }
-    if (attrs.sensor_age     !== undefined) rows.push({ label: 'Sensor age',   value: attrs.sensor_age });
-    if (attrs.transmitter_id !== undefined) rows.push({ label: 'Transmitter',  value: attrs.transmitter_id });
+    if (attrs.sensor_age     !== undefined) rows.push({ label: 'Sensor age',  value: attrs.sensor_age });
+    if (attrs.transmitter_id !== undefined) rows.push({ label: 'Transmitter', value: attrs.transmitter_id });
     const batt = attrs.battery_level ?? attrs.battery;
     if (batt !== undefined) rows.push({ label: 'Battery', value: `${batt}%` });
 
@@ -403,8 +398,8 @@ class DolphinDiabetesCard extends HTMLElement {
   _makePopupShell(titleText) {
     if (this._popupOverlay) this._closePopup();
 
-    const cfg    = this._config;
-    const hexBg  = cfg.card_bg || '#1c1c1e';
+    const cfg   = this._config;
+    const hexBg = cfg.card_bg || '#1c1c1e';
     let popupBg;
     if (/^#[0-9a-fA-F]{8}$/.test(hexBg)) {
       const rr = parseInt(hexBg.slice(1,3),16), gg = parseInt(hexBg.slice(3,5),16), bb = parseInt(hexBg.slice(5,7),16);
@@ -479,7 +474,6 @@ class DolphinDiabetesCard extends HTMLElement {
     const { popup } = this._makePopupShell('Trend History');
     const statusColor = this._getStatusColor(this._hass?.states[cfg.glucose_entity]?.state);
 
-    // Hero row — current trend
     const trendState = this._hass?.states[cfg.trend_entity];
     const trendVal   = trendState?.state || trendState?.attributes?.trend || trendState?.attributes?.trend_description;
     const trendInfo  = this._getTrendInfo(trendVal);
@@ -507,29 +501,25 @@ class DolphinDiabetesCard extends HTMLElement {
       </div>`;
     popup.appendChild(heroRow);
 
-    // Divider
     const divider = document.createElement('div');
     divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:12px;';
     popup.appendChild(divider);
 
-    // History section label
     const histLabel = document.createElement('div');
     histLabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px;';
     histLabel.textContent = 'Recent History';
     popup.appendChild(histLabel);
 
-    // Loading state
     const histWrap = document.createElement('div');
     histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
     popup.appendChild(histWrap);
 
-    // Fetch trend history
     try {
-      const end   = new Date(), start = new Date(end - 24 * 3600000);
-      const resp  = await this._hass.callApi('GET',
+      const end  = new Date(), start = new Date(end - 24 * 3600000);
+      const resp = await this._hass.callApi('GET',
         `history/period/${start.toISOString()}?filter_entity_id=${cfg.trend_entity}&end_time=${end.toISOString()}&minimal_response=false`
       );
-      const data = resp?.[0] || [];
+      const data  = resp?.[0] || [];
       const valid = data.filter(s => s.state && s.state !== 'unavailable' && s.state !== 'unknown');
 
       if (valid.length === 0) {
@@ -550,13 +540,13 @@ class DolphinDiabetesCard extends HTMLElement {
 
         histWrap.innerHTML = '';
         rows.forEach((entry, idx) => {
-          const ts     = entry.last_changed || entry.last_updated;
-          const info   = this._getTrendInfo(entry.state);
-          const label  = info?.label || entry.state;
-          const arrow  = info ? this._trendArrow(info.deg) : '';
-          const color  = idx === 0 ? statusColor : 'rgba(255,255,255,0.6)';
-          const bgCol  = idx === 0 ? `${statusColor}18` : 'rgba(255,255,255,0.06)';
-          const row    = document.createElement('div');
+          const ts    = entry.last_changed || entry.last_updated;
+          const info  = this._getTrendInfo(entry.state);
+          const label = info?.label || entry.state;
+          const arrow = info ? this._trendArrow(info.deg) : '';
+          const color = idx === 0 ? statusColor : 'rgba(255,255,255,0.6)';
+          const bgCol = idx === 0 ? `${statusColor}18` : 'rgba(255,255,255,0.06)';
+          const row   = document.createElement('div');
           row.className = 'dg-trend-hist-row';
           row.innerHTML = `
             <span class="dg-trend-hist-time">${fmtTime(ts)}</span>
@@ -577,7 +567,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const cfg = this._config;
     if (!cfg.show_sensor_life || !cfg.sensor_start_date) return;
 
-    const status      = this._getSensorStatus();
+    const status = this._getSensorStatus();
     if (!status) return;
     const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, totalHoursLeft, pct } = status;
 
@@ -588,21 +578,20 @@ class DolphinDiabetesCard extends HTMLElement {
     const pillColor   = isUrgent ? urgentColor : normalColor;
     const circ        = 2 * Math.PI * 34;
 
-    const fmtDate = d => d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    const fmtTime = d => `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const fmtDate     = d => d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const fmtTime     = d => `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     const fmtDateTime = d => `${fmtDate(d)} at ${fmtTime(d)}`;
 
     const hoursLeft = Math.max(0, Math.floor(totalHoursLeft % 24));
 
     let statusText, statusSub, statusBadge;
-    if (daysLeft === null)    { statusText = '?';                     statusSub = 'Unknown';        statusBadge = 'Unknown'; }
-    else if (isExpired)       { statusText = `${hoursOverdue}h over`; statusSub = 'Replace sensor'; statusBadge = 'Expired'; }
-    else if (daysLeft === 1)  { statusText = '1 day';                 statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
-    else                      { statusText = `${daysLeft} days`;      statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
+    if (daysLeft === null)   { statusText = '?';                     statusSub = 'Unknown';                statusBadge = 'Unknown'; }
+    else if (isExpired)      { statusText = `${hoursOverdue}h over`; statusSub = 'Replace sensor';         statusBadge = 'Expired'; }
+    else if (daysLeft === 1) { statusText = '1 day';                 statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
+    else                     { statusText = `${daysLeft} days`;      statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
 
     const { popup } = this._makePopupShell('Sensor Life');
 
-    // Hero row
     const heroRow = document.createElement('div');
     heroRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
     heroRow.innerHTML = `
@@ -631,17 +620,15 @@ class DolphinDiabetesCard extends HTMLElement {
       </div>`;
     popup.appendChild(heroRow);
 
-    // Divider
     const divider = document.createElement('div');
     divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:4px;';
     popup.appendChild(divider);
 
-    // Info rows
     const infoWrap = document.createElement('div');
     const rows = [
-      { label: 'Applied',         value: fmtDateTime(startDate) },
-      { label: 'Expires',         value: fmtDateTime(endDate)   },
-      { label: 'Duration',        value: `${duration} days`     },
+      { label: 'Applied',  value: fmtDateTime(startDate) },
+      { label: 'Expires',  value: fmtDateTime(endDate)   },
+      { label: 'Duration', value: `${duration} days`     },
     ];
     if (isExpired) {
       rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}` });
@@ -666,7 +653,7 @@ class DolphinDiabetesCard extends HTMLElement {
         `history/period/${start.toISOString()}?filter_entity_id=${this._config.glucose_entity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
       );
       if (resp?.[0]?.length > 0) {
-        const data = resp[0].filter(s => !isNaN(parseFloat(s.state)));
+        const data   = resp[0].filter(s => !isNaN(parseFloat(s.state)));
         const values = data.map(s => parseFloat(s.state));
         const times  = data.map(s => s.last_changed || s.last_updated);
         container.innerHTML = values.length >= 2 ? this._buildGraph(values, times, popupMode) : this._buildGraph([], [], popupMode);
@@ -721,10 +708,8 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         ha-card:active { transform: scale(0.993); opacity: 0.9; }
 
-        /* Tight inner padding */
         .dg-inner { padding: 14px 16px 8px; }
 
-        /* Header — title left, time right */
         .dg-header {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 10px;
@@ -738,13 +723,11 @@ class DolphinDiabetesCard extends HTMLElement {
           font-variant-numeric: tabular-nums; transition: color 0.4s;
         }
 
-        /* Main row: glucose ring | status pill | trend ring */
         .dg-main-row {
           display: flex; align-items: center;
           justify-content: space-between;
         }
 
-        /* Breathing glow animation on rings — applied to the wrapper div */
         @keyframes dgBreath {
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.65; }
@@ -781,7 +764,6 @@ class DolphinDiabetesCard extends HTMLElement {
           transition: color 0.4s; padding: 8px;
         }
 
-        /* Centre — sensor life pill or plain spacer */
         .dg-centre { flex: 1; display: flex; align-items: center; justify-content: center; }
         .dg-sensor-pill {
           display: flex; flex-direction: column; align-items: center;
@@ -798,7 +780,6 @@ class DolphinDiabetesCard extends HTMLElement {
           text-transform: uppercase; margin-top: 2px; opacity: 0.7;
         }
 
-        /* Graph — tight spacing, no label */
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
           margin-top: 8px;
@@ -809,16 +790,13 @@ class DolphinDiabetesCard extends HTMLElement {
       <ha-card id="dg-card">
         <div class="dg-inner">
 
-          <!-- Header -->
           <div class="dg-header" style="display:${cfg.show_title !== false ? 'flex' : 'none'}">
             <span class="dg-title">${cfg.title || 'Blood Sugar'}</span>
             <span class="dg-time" id="dg-time-ago">--</span>
           </div>
 
-          <!-- Main row -->
           <div class="dg-main-row">
 
-            <!-- Glucose ring -->
             <div class="dg-ring-block">
               <svg viewBox="0 0 88 88" width="80" height="80">
                 <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
@@ -832,12 +810,10 @@ class DolphinDiabetesCard extends HTMLElement {
               </div>
             </div>
 
-            <!-- Centre: sensor life pill (hidden when not configured) -->
             <div class="dg-centre">
               <div class="dg-sensor-pill" id="dg-sensor-pill" style="display:none;"></div>
             </div>
 
-            <!-- Trend ring -->
             <div class="dg-trend-ring-block">
               <svg viewBox="0 0 88 88" width="80" height="80">
                 <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
@@ -852,7 +828,6 @@ class DolphinDiabetesCard extends HTMLElement {
 
           </div>
 
-          <!-- Graph -->
           <div class="dg-graph-wrap" id="dg-graph-wrap">
             <div class="dg-graph-inner" id="dg-graph-inner">
               <div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.2);font-size:11px;">Loading…</div>
@@ -881,7 +856,6 @@ class DolphinDiabetesCard extends HTMLElement {
     card.addEventListener('touchcancel', cancel);
     card.addEventListener('click', () => { if (!this._longPressFired) this._openPopup(); });
 
-    // Trend ring — intercept before card-level click
     const trendBlock = this.shadowRoot.querySelector('.dg-trend-ring-block');
     if (trendBlock) {
       trendBlock.addEventListener('click', e => {
@@ -893,7 +867,6 @@ class DolphinDiabetesCard extends HTMLElement {
       trendBlock.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     }
 
-    // Sensor pill — intercept before card-level click
     const pillEl = this.shadowRoot.getElementById('dg-sensor-pill');
     if (pillEl) {
       pillEl.addEventListener('click', e => {
@@ -923,15 +896,12 @@ class DolphinDiabetesCard extends HTMLElement {
     const lastUpdate   = glucoseState?.last_changed || glucoseState?.last_updated;
     const root         = this.shadowRoot;
     const statusColor  = this._getStatusColor(glucoseVal);
-    const statusLabel  = this._getStatusLabel(glucoseVal);
     const trendInfo    = this._getTrendInfo(trendVal);
     const circ         = 2 * Math.PI * 34;
 
-    // Grey out everything only if the sensor is unavailable/unknown
     const isUnavailable = !glucoseVal || glucoseVal === 'unavailable' || glucoseVal === 'unknown' || isNaN(parseFloat(glucoseVal));
-    const displayColor = isUnavailable ? 'rgba(255,255,255,0.28)' : statusColor;
+    const displayColor  = isUnavailable ? 'rgba(255,255,255,0.28)' : statusColor;
 
-    // Glucose number
     const glucoseEl = root.getElementById('dg-glucose');
     if (glucoseEl) glucoseEl.textContent = this._formatGlucose(glucoseVal);
     const numEl = root.getElementById('dg-glucose-num');
@@ -942,19 +912,17 @@ class DolphinDiabetesCard extends HTMLElement {
       unitEl.style.color = isUnavailable ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.45)';
     }
 
-    // Glucose ring — arc colour + CSS var for breathing glow
-    const ringEl = root.getElementById('dg-ring-arc');
+    const ringEl    = root.getElementById('dg-ring-arc');
     const ringBlock = this.shadowRoot.querySelector('.dg-ring-block');
     if (ringEl && glucoseVal) {
-      const n = parseFloat(glucoseVal);
+      const n   = parseFloat(glucoseVal);
       const pct = Math.min(1, Math.max(0, (n - this._lo() * 0.6) / (this._hi() * 1.4 - this._lo() * 0.6)));
       ringEl.style.strokeDashoffset = circ * (1 - pct);
       ringEl.style.stroke = displayColor;
     }
     if (ringBlock) ringBlock.style.setProperty('--dg-ring-color', displayColor);
 
-    // Trend ring — arc + CSS var for breathing glow
-    const trendRingEl = root.getElementById('dg-trend-ring-arc');
+    const trendRingEl    = root.getElementById('dg-trend-ring-arc');
     const trendRingBlock = this.shadowRoot.querySelector('.dg-trend-ring-block');
     if (trendRingEl) {
       const trendPct = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
@@ -963,14 +931,12 @@ class DolphinDiabetesCard extends HTMLElement {
     }
     if (trendRingBlock) trendRingBlock.style.setProperty('--dg-ring-color', displayColor);
 
-    // Trend text
     const trendTextEl = root.getElementById('dg-trend-text');
     if (trendTextEl) {
       trendTextEl.textContent = trendInfo?.label || (trendVal ? trendVal : '--');
       trendTextEl.style.color = displayColor;
     }
 
-    // Time-ago — grey when in range, high_color when stale
     const timeEl = root.getElementById('dg-time-ago');
     if (timeEl && lastUpdate) {
       const mins = Math.floor((Date.now() - new Date(lastUpdate).getTime()) / 60000);
@@ -978,7 +944,6 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
-    // Sensor life pill
     const pillEl = root.getElementById('dg-sensor-pill');
     if (pillEl) {
       const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
@@ -993,11 +958,11 @@ class DolphinDiabetesCard extends HTMLElement {
         const isUrgent     = daysLeft !== null && daysLeft <= 1;
         const pillCol      = isUrgent ? urgentColor : normalColor;
         let label, sub;
-        if (daysLeft === null)  { label = '?';               sub = ''; }
-        else if (isExpired)     { label = `${hoursOverdue}h`; sub = 'over'; }
-        else                    { label = `${daysLeft}`;       sub = 'days left'; }
-        pillEl.style.display     = 'flex';
-        pillEl.style.background  = bg;
+        if (daysLeft === null) { label = '?';                sub = ''; }
+        else if (isExpired)    { label = `${hoursOverdue}h`; sub = 'over'; }
+        else                   { label = `${daysLeft}`;      sub = 'days left'; }
+        pillEl.style.display    = 'flex';
+        pillEl.style.background = bg;
         pillEl.style.setProperty('--dg-ring-color', pillCol);
         pillEl.innerHTML = `
           <span class="dg-sensor-pill-days" style="color:${pillCol};">${label}</span>
@@ -1008,7 +973,6 @@ class DolphinDiabetesCard extends HTMLElement {
       }
     }
 
-    // Inline graph
     if (this._config.show_graph) {
       const graphInner = root.getElementById('dg-graph-inner');
       if (graphInner && !this._historyFetching) {
@@ -1054,41 +1018,38 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     const setVal = (id, val) => { const el = root.getElementById(id); if (el) el.value = val; };
     const setChk = (id, val) => { const el = root.getElementById(id); if (el) el.checked = !!val; };
 
-    setVal('glucose_entity',        cfg.glucose_entity        || '');
-    setVal('trend_entity',          cfg.trend_entity          || '');
-    setVal('title',                 cfg.title                 || 'Blood Sugar');
-    setVal('low_threshold',         cfg.low_threshold         ?? 3.9);
-    setVal('high_threshold',        cfg.high_threshold        ?? 10.0);
-    setVal('sensor_duration_days',  cfg.sensor_duration_days  ?? 14);
-    // datetime-local input: populate from saved ISO string, or default to now
+    setVal('glucose_entity',       cfg.glucose_entity       || '');
+    setVal('trend_entity',         cfg.trend_entity         || '');
+    setVal('title',                cfg.title                || 'Blood Sugar');
+    setVal('low_threshold',        cfg.low_threshold        ?? 3.9);
+    setVal('high_threshold',       cfg.high_threshold       ?? 10.0);
+    setVal('sensor_duration_days', cfg.sensor_duration_days ?? 14);
+
     const dtEl = root.getElementById('sensor_start_datetime');
     if (dtEl) {
       if (cfg.sensor_start_date) {
-        // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:MM)
         const d = new Date(cfg.sensor_start_date);
         if (!isNaN(d.getTime())) {
           const pad = n => n.toString().padStart(2,'0');
           dtEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         }
       } else {
-        // Default to current local time when no sensor has been set yet
         const now = new Date();
         const pad = n => n.toString().padStart(2,'0');
         dtEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
       }
     }
-    setChk('show_graph',            cfg.show_graph  !== false);
-    setChk('show_title',            cfg.show_title  !== false);
-    setChk('show_sensor_life',      cfg.show_sensor_life === true);
+    setChk('show_graph',       cfg.show_graph       !== false);
+    setChk('show_title',       cfg.show_title       !== false);
+    setChk('show_sensor_life', cfg.show_sensor_life === true);
 
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = r.value === (cfg.unit || 'mmol'); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = parseInt(r.value) === parseInt(cfg.graph_hours || 3); });
 
-    // Keep dependent sections visible/hidden in sync with their toggle state
     const graphSection  = root.getElementById('graph_hours_section');
     const sensorSection = root.getElementById('sensor_life_section');
-    if (graphSection)  graphSection.style.display  = cfg.show_graph        !== false ? '' : 'none';
-    if (sensorSection) sensorSection.style.display = cfg.show_sensor_life  === true  ? '' : 'none';
+    if (graphSection)  graphSection.style.display  = cfg.show_graph       !== false ? '' : 'none';
+    if (sensorSection) sensorSection.style.display = cfg.show_sensor_life === true  ? '' : 'none';
 
     for (const field of this._getColourFields()) {
       const card = root.querySelector(`.colour-card[data-key="${field.key}"]`);
@@ -1104,51 +1065,44 @@ class DolphinDiabetesCardEditor extends HTMLElement {
 
   _getColourFields() {
     return [
-      { key: 'accent_color',     label: 'Accent',          desc: 'Ring & icon highlight',           default: '#007AFF', maxlen: 7 },
-      { key: 'normal_color',     label: 'In Range',         desc: 'Colour when glucose is in range', default: '#34C759', maxlen: 7 },
-      { key: 'low_color',        label: 'Low Alert',        desc: 'Colour when glucose is low',      default: '#FF3B30', maxlen: 7 },
-      { key: 'high_color',       label: 'High Alert',       desc: 'Colour when glucose is high',     default: '#FF9500', maxlen: 7 },
-      { key: 'graph_line_color',    label: 'Graph Line',          desc: 'Graph line colour',                default: '#007AFF', maxlen: 7 },
-      { key: 'graph_fill_color',    label: 'Graph Fill',           desc: 'Graph area fill colour',           default: '#007AFF', maxlen: 7 },
-      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',       desc: 'Sensor life pill background',              default: '#2c2c2e', maxlen: 9 },
-      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',      desc: 'Pill text colour when days remain',         default: '#34C759', maxlen: 7 },
-      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',    desc: 'Pill text colour when 1 day or less left',  default: '#FF3B30', maxlen: 7 },
-      { key: 'card_bg',             label: 'Card Background',      desc: '#00000000 = transparent glass. 8-digit hex for custom opacity — e.g. #1c1c1e80', default: '#1c1c1e', maxlen: 9 },
-      { key: 'text_color',          label: 'Text Colour',          desc: 'Primary text colour',              default: '#ffffff', maxlen: 7 },
+      { key: 'accent_color',             label: 'Accent',             desc: 'Ring & icon highlight',                                                        default: '#007AFF', maxlen: 7 },
+      { key: 'normal_color',             label: 'In Range',            desc: 'Colour when glucose is in range',                                              default: '#34C759', maxlen: 7 },
+      { key: 'low_color',                label: 'Low Alert',           desc: 'Colour when glucose is low',                                                   default: '#FF3B30', maxlen: 7 },
+      { key: 'high_color',               label: 'High Alert',          desc: 'Colour when glucose is high',                                                  default: '#FF9500', maxlen: 7 },
+      { key: 'graph_line_color',         label: 'Graph Line',          desc: 'Graph line colour',                                                            default: '#007AFF', maxlen: 7 },
+      { key: 'graph_fill_color',         label: 'Graph Fill',          desc: 'Graph area fill colour',                                                       default: '#007AFF', maxlen: 7 },
+      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',      desc: 'Sensor life pill background',                                                  default: '#2c2c2e', maxlen: 9 },
+      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',     desc: 'Pill text colour when days remain',                                            default: '#34C759', maxlen: 7 },
+      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',   desc: 'Pill text colour when 1 day or less left',                                     default: '#FF3B30', maxlen: 7 },
+      { key: 'card_bg',                  label: 'Card Background',     desc: '#00000000 = transparent glass. 8-digit hex for custom opacity — e.g. #1c1c1e80', default: '#1c1c1e', maxlen: 9 },
+      { key: 'text_color',               label: 'Text Colour',         desc: 'Primary text colour',                                                          default: '#ffffff', maxlen: 7 },
     ];
   }
 
   _buildEditor() {
     const hass = this._hass, cfg = this._config;
 
-    // ── Smart entity detection ──────────────────────────────────────
-    // Keywords that suggest a glucose reading sensor
-    const glucoseKeywords  = ['glucose', 'blood_sugar', 'blood sugar', 'cgm', 'dexcom', 'nightscout', 'xdrip', 'sugar', 'libre', 'mg_dl', 'mmol'];
-    // Keywords that suggest a trend sensor
-    const trendKeywords    = ['trend', 'direction', 'arrow', 'slope'];
+    const glucoseKeywords = ['glucose', 'blood_sugar', 'blood sugar', 'cgm', 'dexcom', 'nightscout', 'xdrip', 'sugar', 'libre', 'mg_dl', 'mmol'];
+    const trendKeywords   = ['trend', 'direction', 'arrow', 'slope'];
 
     const allEntities = Object.keys(hass.states).sort();
 
-    // Filtered lists — sensors only, scored by keyword relevance
     const scoreEntity = (id, keywords) => {
       const name  = (hass.states[id]?.attributes?.friendly_name || '').toLowerCase();
       const idLow = id.toLowerCase();
       return keywords.reduce((s, k) => s + (idLow.includes(k) || name.includes(k) ? 1 : 0), 0);
     };
 
-    // Glucose candidates: sensor domain, numeric state, glucose-related name
     const glucoseCandidates = allEntities
       .filter(e => e.startsWith('sensor.') && !isNaN(parseFloat(hass.states[e]?.state)))
       .map(e => ({ e, score: scoreEntity(e, glucoseKeywords) }))
       .sort((a, b) => b.score - a.score || a.e.localeCompare(b.e));
 
-    // Trend candidates: any sensor with trend-like name or non-numeric state
     const trendCandidates = allEntities
       .filter(e => e.startsWith('sensor.'))
       .map(e => ({ e, score: scoreEntity(e, trendKeywords) }))
       .sort((a, b) => b.score - a.score || a.e.localeCompare(b.e));
 
-    // Auto-detect: if no entity is configured yet, pre-select the top-scoring match
     let glucoseVal = cfg.glucose_entity || '';
     let trendVal   = cfg.trend_entity   || '';
     if (!glucoseVal && glucoseCandidates.length && glucoseCandidates[0].score > 0) {
@@ -1160,31 +1114,27 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       this._updateConfig('trend_entity', trendVal);
     }
 
-    // Build option HTML — suggested entities first, then a divider, then all sensors
     const buildOptions = (candidates, allSensorEntities, selectedVal) => {
       const candidateIds = new Set(candidates.map(c => c.e));
       const suggested = candidates.map(({ e }) => {
         const name = hass.states[e]?.attributes?.friendly_name || e;
         return `<option value="${e}" ${e === selectedVal ? 'selected' : ''}>${name} (${e})</option>`;
       }).join('');
-
       const rest = allSensorEntities
         .filter(e => !candidateIds.has(e))
         .map(e => {
           const name = hass.states[e]?.attributes?.friendly_name || e;
           return `<option value="${e}" ${e === selectedVal ? 'selected' : ''}>${name} (${e})</option>`;
         }).join('');
-
       const divider = suggested && rest ? `<option disabled>──────────────────</option>` : '';
       return `<option value="">— None —</option>${suggested}${divider}${rest}`;
     };
 
-    const allSensors = allEntities.filter(e => e.startsWith('sensor.'));
+    const allSensors     = allEntities.filter(e => e.startsWith('sensor.'));
     const glucoseOptions = buildOptions(glucoseCandidates, allSensors, glucoseVal);
     const trendOptions   = buildOptions(trendCandidates,   allSensors, trendVal);
-
-    const COLOUR_FIELDS = this._getColourFields();
-    const isMMol = cfg.unit !== 'mgdl';
+    const COLOUR_FIELDS  = this._getColourFields();
+    const isMMol         = cfg.unit !== 'mgdl';
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -1196,7 +1146,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         .select-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
         .select-row label { font-size: 13px; font-weight: 600; color: var(--primary-text-color); }
         .hint { font-size: 11px; color: #888; }
-        /* Entity search filter */
         .entity-search {
           background: var(--secondary-background-color,rgba(0,0,0,0.06));
           color: var(--primary-text-color); border: 1px solid rgba(128,128,128,0.2);
@@ -1217,8 +1166,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         input[type="text"], input[type="number"] { background-image: none; padding-right: 12px; cursor: text; }
         input[type="date"], input[type="datetime-local"] {
           background-image: none; padding-right: 12px; cursor: pointer;
-          -webkit-appearance: auto; appearance: auto;
-          color-scheme: dark;
+          -webkit-appearance: auto; appearance: auto; color-scheme: dark;
         }
         .sensor-confirm-btn {
           width: 100%; padding: 11px 16px; border-radius: 10px; border: none;
@@ -1246,11 +1194,9 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         .segmented label { flex:1; text-align:center; padding:8px 4px; font-size:13px; font-weight:500; border-radius:7px; cursor:pointer; color:var(--primary-text-color); transition:all 0.2s; }
         .segmented input[type="radio"]:checked + label { background:#007AFF; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
         .input-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
-        /* Thresholds */
         .threshold-row { display:flex; gap:12px; }
         .threshold-row > div { flex:1; display:flex; flex-direction:column; gap:4px; }
         .threshold-row label { font-size:11px; font-weight:600; color:#888; }
-        /* Colour cards */
         .colour-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .colour-card { border:1px solid var(--divider-color,rgba(0,0,0,0.12)); border-radius:10px; overflow:hidden; cursor:pointer; transition:box-shadow 0.15s,border-color 0.15s; }
         .colour-card:hover { box-shadow:0 2px 10px rgba(0,0,0,0.12); border-color:var(--primary-color,#007AFF); }
@@ -1275,7 +1221,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
 
       <div class="container">
 
-        <!-- Entities -->
         <div>
           <div class="section-title">Sensor Entities</div>
           <div class="hint" style="margin-bottom:6px;">Suggested sensors appear first. Type to filter the list.</div>
@@ -1293,7 +1238,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Unit -->
         <div>
           <div class="section-title">Glucose Unit</div>
           <div class="card-block" style="padding:12px;">
@@ -1304,7 +1248,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Thresholds -->
         <div>
           <div class="section-title">Alert Thresholds</div>
           <div class="card-block">
@@ -1324,7 +1267,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Display Options -->
         <div>
           <div class="section-title">Display Options</div>
           <div class="card-block">
@@ -1366,7 +1308,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Sensor Life Details -->
         <div id="sensor_life_section" style="${cfg.show_sensor_life ? '' : 'display:none'}">
           <div class="section-title">Sensor Life</div>
           <div class="card-block">
@@ -1381,7 +1322,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Card Title -->
         <div>
           <div class="section-title">Card Title Text</div>
           <div class="card-block">
@@ -1391,7 +1331,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Graph Hours -->
         <div id="graph_hours_section" style="${cfg.show_graph !== false ? '' : 'display:none'}">
           <div class="section-title">Default Graph Time Range</div>
           <div class="card-block" style="padding:12px;">
@@ -1405,7 +1344,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Colours -->
         <div>
           <div class="section-title">Colours</div>
           <div class="card-block" style="padding:10px;">
@@ -1413,7 +1351,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
-        <!-- Opacity -->
         <div>
           <div class="section-title">Card Background Opacity</div>
           <div class="card-block">
@@ -1468,14 +1405,14 @@ class DolphinDiabetesCardEditor extends HTMLElement {
 
     this._setupListeners();
 
-    // Wire search filters here (needs hass & data arrays in scope)
+    // Wire search filters
     const root2 = this.shadowRoot;
     const wireSearch = (searchId, selectId, allData) => {
       const searchEl = root2.getElementById(searchId);
       const selectEl = root2.getElementById(selectId);
       if (!searchEl || !selectEl) return;
       searchEl.addEventListener('input', () => {
-        const term = searchEl.value.toLowerCase().trim();
+        const term    = searchEl.value.toLowerCase().trim();
         const current = selectEl.value;
         const matches = term
           ? allData.filter(d => d.id.toLowerCase().includes(term) || d.name.toLowerCase().includes(term))
@@ -1487,15 +1424,15 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       });
     };
 
-    const allSensors2 = Object.keys(hass.states)
+    const allSensors2  = Object.keys(hass.states)
       .filter(e => e.startsWith('sensor.')).sort()
       .map(e => ({ id: e, name: hass.states[e]?.attributes?.friendly_name || e, suggested: false }));
-    const scoreKw = (id, name, kws) => kws.reduce((s, k) => s + (id.includes(k) || name.includes(k) ? 1 : 0), 0);
-    const glucoseKws = ['glucose','blood_sugar','blood sugar','cgm','dexcom','nightscout','xdrip','sugar','libre','mg_dl','mmol'];
-    const trendKws   = ['trend','direction','arrow','slope'];
+    const scoreKw      = (id, name, kws) => kws.reduce((s, k) => s + (id.includes(k) || name.includes(k) ? 1 : 0), 0);
+    const glucoseKws   = ['glucose','blood_sugar','blood sugar','cgm','dexcom','nightscout','xdrip','sugar','libre','mg_dl','mmol'];
+    const trendKws     = ['trend','direction','arrow','slope'];
     const glucoseData2 = allSensors2.map(d => ({ ...d, suggested: scoreKw(d.id.toLowerCase(), d.name.toLowerCase(), glucoseKws) > 0 }))
       .sort((a, b) => (b.suggested ? 1 : 0) - (a.suggested ? 1 : 0) || a.id.localeCompare(b.id));
-    const trendData2 = allSensors2.map(d => ({ ...d, suggested: scoreKw(d.id.toLowerCase(), d.name.toLowerCase(), trendKws) > 0 }))
+    const trendData2   = allSensors2.map(d => ({ ...d, suggested: scoreKw(d.id.toLowerCase(), d.name.toLowerCase(), trendKws) > 0 }))
       .sort((a, b) => (b.suggested ? 1 : 0) - (a.suggested ? 1 : 0) || a.id.localeCompare(b.id));
 
     wireSearch('glucose_search', 'glucose_entity', glucoseData2);
@@ -1508,14 +1445,14 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     const root = this.shadowRoot;
     const get  = id => root.getElementById(id);
 
-    get('glucose_entity').onchange  = e => this._updateConfig('glucose_entity', e.target.value);
-    get('trend_entity').onchange    = e => this._updateConfig('trend_entity',   e.target.value);
+    get('glucose_entity').onchange = e => this._updateConfig('glucose_entity', e.target.value);
+    get('trend_entity').onchange   = e => this._updateConfig('trend_entity',   e.target.value);
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.onchange = () => this._updateConfig('unit', r.value); });
 
-    get('low_threshold').onchange   = e => this._updateConfig('low_threshold',  parseFloat(e.target.value));
-    get('high_threshold').onchange  = e => this._updateConfig('high_threshold', parseFloat(e.target.value));
-    get('show_title').onchange      = e => this._updateConfig('show_title', e.target.checked);
-    get('show_graph').onchange      = e => {
+    get('low_threshold').onchange  = e => this._updateConfig('low_threshold',  parseFloat(e.target.value));
+    get('high_threshold').onchange = e => this._updateConfig('high_threshold', parseFloat(e.target.value));
+    get('show_title').onchange     = e => this._updateConfig('show_title', e.target.checked);
+    get('show_graph').onchange     = e => {
       this._updateConfig('show_graph', e.target.checked);
       const s = root.getElementById('graph_hours_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
@@ -1524,7 +1461,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       this._updateConfig('show_sensor_life', e.target.checked);
       const s = root.getElementById('sensor_life_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
-      // Pre-fill datetime to now if nothing saved yet
       if (e.target.checked) {
         const dtEl = root.getElementById('sensor_start_datetime');
         if (dtEl && !this._config.sensor_start_date) {
@@ -1535,25 +1471,24 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       }
     };
     get('breathing_effect').onchange = e => this._updateConfig('breathing_effect', e.target.checked);
-    // sensor_start_datetime is saved only when the Confirm button is clicked
+
     const confirmBtn = root.getElementById('sensor_confirm_btn');
     if (confirmBtn) {
       confirmBtn.addEventListener('click', () => {
         const dtEl = root.getElementById('sensor_start_datetime');
         if (!dtEl || !dtEl.value) return;
-        // Store as full ISO string so time-of-day is preserved
         const iso = new Date(dtEl.value).toISOString();
         this._updateConfig('sensor_start_date', iso);
-        // Flash button green to confirm save
         confirmBtn.classList.add('saved');
         confirmBtn.textContent = '✓  Saved!';
         setTimeout(() => { confirmBtn.classList.remove('saved'); confirmBtn.innerHTML = '✓ &nbsp;Confirm sensor start time'; }, 2000);
       });
     }
+
     get('sensor_duration_days').onchange = e => this._updateConfig('sensor_duration_days', parseInt(e.target.value));
     get('title').oninput = e => this._updateConfig('title', e.target.value);
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.onchange = () => this._updateConfig('graph_hours', parseInt(r.value)); });
-    get('card_bg_opacity').oninput  = e => {
+    get('card_bg_opacity').oninput = e => {
       const val = parseInt(e.target.value);
       root.getElementById('opacity-val').textContent = val + '%';
       this._updateConfig('card_bg_opacity', val);
