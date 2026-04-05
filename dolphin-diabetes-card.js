@@ -101,14 +101,22 @@ class DolphinDiabetesCard extends HTMLElement {
   _hi() { return parseFloat(this._config.high_threshold) || (this._config.unit === 'mgdl' ? 180 : 10.0); }
 
   _getSensorDaysLeft() {
+    return this._getSensorStatus()?.daysLeft ?? null;
+  }
+
+  _getSensorStatus() {
     const { sensor_start_date, sensor_duration_days } = this._config;
     if (!sensor_start_date) return null;
-    const start    = new Date(sensor_start_date);
+    const start = new Date(sensor_start_date);
     if (isNaN(start.getTime())) return null;
-    const duration = parseInt(sensor_duration_days) || 14;
-    const end      = new Date(start.getTime() + duration * 86400000);
-    const left     = Math.ceil((end - Date.now()) / 86400000);
-    return left;
+    const duration       = parseInt(sensor_duration_days) || 14;
+    const end            = new Date(start.getTime() + duration * 86400000);
+    const msLeft         = end - Date.now();
+    const daysLeft       = Math.ceil(msLeft / 86400000);
+    const totalHoursLeft = msLeft / 3600000;
+    const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
+    const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
+    return { start, end, duration, daysLeft, totalHoursLeft, hoursOverdue, pct };
   }
 
   _formatGlucose(val) {
@@ -569,28 +577,28 @@ class DolphinDiabetesCard extends HTMLElement {
     const cfg = this._config;
     if (!cfg.show_sensor_life || !cfg.sensor_start_date) return;
 
-    const daysLeft    = this._getSensorDaysLeft();
-    const startDate   = new Date(cfg.sensor_start_date);
-    const duration    = parseInt(cfg.sensor_duration_days) || 14;
-    const endDate     = new Date(startDate.getTime() + duration * 86400000);
+    const status      = this._getSensorStatus();
+    if (!status) return;
+    const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, totalHoursLeft, pct } = status;
+
     const normalColor = cfg.sensor_pill_normal_color || '#34C759';
     const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
+    const isExpired   = daysLeft !== null && daysLeft <= 0;
     const isUrgent    = daysLeft !== null && daysLeft <= 1;
     const pillColor   = isUrgent ? urgentColor : normalColor;
+    const circ        = 2 * Math.PI * 34;
 
     const fmtDate = d => d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    const fmtDateTime = d => `${fmtDate(d)} at ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const fmtTime = d => `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const fmtDateTime = d => `${fmtDate(d)} at ${fmtTime(d)}`;
 
-    const totalHoursLeft  = (endDate - Date.now()) / 3600000;
-    const hoursLeft       = Math.max(0, Math.floor(totalHoursLeft % 24));
-    const pct             = Math.max(0, Math.min(1, (endDate - Date.now()) / (duration * 86400000)));
-    const circ            = 2 * Math.PI * 34;
+    const hoursLeft = Math.max(0, Math.floor(totalHoursLeft % 24));
 
-    let statusText, statusSub;
-    if (daysLeft === null)   { statusText = '?';         statusSub = 'Unknown'; }
-    else if (daysLeft <= 0)  { statusText = 'Expired';   statusSub = 'Replace sensor'; }
-    else if (daysLeft === 1) { statusText = '1 day';     statusSub = `${hoursLeft}h remaining`; }
-    else                     { statusText = `${daysLeft} days`; statusSub = `${hoursLeft}h remaining`; }
+    let statusText, statusSub, statusBadge;
+    if (daysLeft === null)    { statusText = '?';                     statusSub = 'Unknown';        statusBadge = 'Unknown'; }
+    else if (isExpired)       { statusText = `${hoursOverdue}h over`; statusSub = 'Replace sensor'; statusBadge = 'Expired'; }
+    else if (daysLeft === 1)  { statusText = '1 day';                 statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
+    else                      { statusText = `${daysLeft} days`;      statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
 
     const { popup } = this._makePopupShell('Sensor Life');
 
@@ -603,7 +611,7 @@ class DolphinDiabetesCard extends HTMLElement {
         <div style="margin-top:4px;font-size:12px;color:rgba(255,255,255,0.4);font-weight:500;">${statusSub}</div>
         <div style="margin-top:6px;">
           <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.04em;background:${pillColor}22;color:${pillColor};border:1px solid ${pillColor}44;">
-            ${isUrgent ? (daysLeft <= 0 ? 'Expired' : 'Replace Soon') : 'Active'}
+            ${statusBadge}
           </span>
         </div>
       </div>
@@ -614,8 +622,11 @@ class DolphinDiabetesCard extends HTMLElement {
             style="stroke-dasharray:${circ};stroke-dashoffset:${(circ*(1-pct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
         </svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-          <span style="font-size:15px;font-weight:700;color:${pillColor};line-height:1;">${daysLeft !== null && daysLeft > 0 ? daysLeft : daysLeft === 0 ? '0' : '?'}</span>
-          <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">days</span>
+          ${isExpired
+            ? `<span style="font-size:11px;font-weight:700;color:${pillColor};line-height:1;text-align:center;padding:4px;">${hoursOverdue}h<br><span style="font-size:7px;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">over</span></span>`
+            : `<span style="font-size:15px;font-weight:700;color:${pillColor};line-height:1;">${daysLeft ?? '?'}</span>
+               <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">days</span>`
+          }
         </div>
       </div>`;
     popup.appendChild(heroRow);
@@ -628,12 +639,14 @@ class DolphinDiabetesCard extends HTMLElement {
     // Info rows
     const infoWrap = document.createElement('div');
     const rows = [
-      { label: 'Sensor started',  value: fmtDateTime(startDate) },
-      { label: 'Sensor expires',  value: fmtDate(endDate)        },
-      { label: 'Duration',        value: `${duration} days`       },
+      { label: 'Applied',         value: fmtDateTime(startDate) },
+      { label: 'Expires',         value: fmtDateTime(endDate)   },
+      { label: 'Duration',        value: `${duration} days`     },
     ];
-    if (daysLeft !== null && daysLeft > 0) {
-      rows.push({ label: 'Days remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h` });
+    if (isExpired) {
+      rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}` });
+    } else if (daysLeft !== null) {
+      rows.push({ label: 'Time remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h` });
     }
     rows.forEach(({ label, value }) => {
       const row = document.createElement('div');
@@ -970,18 +983,21 @@ class DolphinDiabetesCard extends HTMLElement {
     if (pillEl) {
       const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
       if (showPill) {
-        const daysLeft = this._getSensorDaysLeft();
+        const status       = this._getSensorStatus();
+        const daysLeft     = status?.daysLeft ?? null;
+        const hoursOverdue = status?.hoursOverdue ?? 0;
         const bg           = this._config.sensor_pill_bg           || '#2c2c2e';
         const normalColor  = this._config.sensor_pill_normal_color || '#34C759';
         const urgentColor  = this._config.sensor_pill_urgent_color || '#FF3B30';
-        const label = daysLeft === null ? '?' : daysLeft <= 0 ? 'Expired' : `${daysLeft}`;
-        const sub   = daysLeft !== null && daysLeft > 0 ? 'days left' : daysLeft === 0 ? 'today' : '';
-        // Use urgent colour when exactly 1 day left or expired
-        const isUrgent = daysLeft !== null && daysLeft <= 1;
-        const pillCol  = isUrgent ? urgentColor : normalColor;
-        const pillBg   = bg;
+        const isExpired    = daysLeft !== null && daysLeft <= 0;
+        const isUrgent     = daysLeft !== null && daysLeft <= 1;
+        const pillCol      = isUrgent ? urgentColor : normalColor;
+        let label, sub;
+        if (daysLeft === null)  { label = '?';               sub = ''; }
+        else if (isExpired)     { label = `${hoursOverdue}h`; sub = 'over'; }
+        else                    { label = `${daysLeft}`;       sub = 'days left'; }
         pillEl.style.display     = 'flex';
-        pillEl.style.background  = pillBg;
+        pillEl.style.background  = bg;
         pillEl.style.setProperty('--dg-ring-color', pillCol);
         pillEl.innerHTML = `
           <span class="dg-sensor-pill-days" style="color:${pillCol};">${label}</span>
@@ -1043,8 +1059,24 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     setVal('title',                 cfg.title                 || 'Blood Sugar');
     setVal('low_threshold',         cfg.low_threshold         ?? 3.9);
     setVal('high_threshold',        cfg.high_threshold        ?? 10.0);
-    setVal('sensor_start_date',     cfg.sensor_start_date     || '');
     setVal('sensor_duration_days',  cfg.sensor_duration_days  ?? 14);
+    // datetime-local input: populate from saved ISO string, or default to now
+    const dtEl = root.getElementById('sensor_start_datetime');
+    if (dtEl) {
+      if (cfg.sensor_start_date) {
+        // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:MM)
+        const d = new Date(cfg.sensor_start_date);
+        if (!isNaN(d.getTime())) {
+          const pad = n => n.toString().padStart(2,'0');
+          dtEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+      } else {
+        // Default to current local time when no sensor has been set yet
+        const now = new Date();
+        const pad = n => n.toString().padStart(2,'0');
+        dtEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      }
+    }
     setChk('show_graph',            cfg.show_graph  !== false);
     setChk('show_title',            cfg.show_title  !== false);
     setChk('show_sensor_life',      cfg.show_sensor_life === true);
@@ -1183,11 +1215,21 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
         }
         input[type="text"], input[type="number"] { background-image: none; padding-right: 12px; cursor: text; }
-        input[type="date"] {
+        input[type="date"], input[type="datetime-local"] {
           background-image: none; padding-right: 12px; cursor: pointer;
           -webkit-appearance: auto; appearance: auto;
           color-scheme: dark;
         }
+        .sensor-confirm-btn {
+          width: 100%; padding: 11px 16px; border-radius: 10px; border: none;
+          background: #007AFF; color: #fff; font-size: 13px; font-weight: 700;
+          cursor: pointer; font-family: inherit; letter-spacing: 0.02em;
+          transition: background 0.15s, opacity 0.15s; margin-top: 6px;
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .sensor-confirm-btn:hover  { background: #0066d6; }
+        .sensor-confirm-btn:active { opacity: 0.8; }
+        .sensor-confirm-btn.saved  { background: #34C759; }
         .toggle-list { display: flex; flex-direction: column; }
         .toggle-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid rgba(128,128,128,0.1); min-height: 52px; }
         .toggle-item:last-child { border-bottom: none; }
@@ -1329,17 +1371,12 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           <div class="section-title">Sensor Life</div>
           <div class="card-block">
             <div class="input-row">
-              <div class="hint" style="margin-bottom:4px;">Enter the date you applied your current sensor and how many days it lasts</div>
-              <div class="threshold-row">
-                <div>
-                  <label>Sensor start date</label>
-                  <input type="date" id="sensor_start_date" value="${cfg.sensor_start_date || ''}">
-                </div>
-                <div>
-                  <label>Sensor lasts (days)</label>
-                  <input type="number" id="sensor_duration_days" min="1" max="30" step="1" value="${cfg.sensor_duration_days ?? 14}">
-                </div>
-              </div>
+              <div class="hint" style="margin-bottom:8px;">Set the exact date and time you applied the sensor. Press <strong>Confirm</strong> to save — this prevents accidental changes while editing other settings.</div>
+              <label style="font-size:11px;font-weight:600;color:#888;margin-bottom:4px;display:block;">Sensor applied (date &amp; time)</label>
+              <input type="datetime-local" id="sensor_start_datetime">
+              <label style="font-size:11px;font-weight:600;color:#888;margin-top:10px;margin-bottom:4px;display:block;">Sensor lasts (days)</label>
+              <input type="number" id="sensor_duration_days" min="1" max="30" step="1" value="${cfg.sensor_duration_days ?? 14}">
+              <button class="sensor-confirm-btn" id="sensor_confirm_btn">✓ &nbsp;Confirm sensor start time</button>
             </div>
           </div>
         </div>
@@ -1487,9 +1524,32 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       this._updateConfig('show_sensor_life', e.target.checked);
       const s = root.getElementById('sensor_life_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
+      // Pre-fill datetime to now if nothing saved yet
+      if (e.target.checked) {
+        const dtEl = root.getElementById('sensor_start_datetime');
+        if (dtEl && !this._config.sensor_start_date) {
+          const now = new Date();
+          const pad = n => n.toString().padStart(2,'0');
+          dtEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        }
+      }
     };
     get('breathing_effect').onchange = e => this._updateConfig('breathing_effect', e.target.checked);
-    get('sensor_start_date').onchange    = e => this._updateConfig('sensor_start_date',    e.target.value);
+    // sensor_start_datetime is saved only when the Confirm button is clicked
+    const confirmBtn = root.getElementById('sensor_confirm_btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        const dtEl = root.getElementById('sensor_start_datetime');
+        if (!dtEl || !dtEl.value) return;
+        // Store as full ISO string so time-of-day is preserved
+        const iso = new Date(dtEl.value).toISOString();
+        this._updateConfig('sensor_start_date', iso);
+        // Flash button green to confirm save
+        confirmBtn.classList.add('saved');
+        confirmBtn.textContent = '✓  Saved!';
+        setTimeout(() => { confirmBtn.classList.remove('saved'); confirmBtn.innerHTML = '✓ &nbsp;Confirm sensor start time'; }, 2000);
+      });
+    }
     get('sensor_duration_days').onchange = e => this._updateConfig('sensor_duration_days', parseInt(e.target.value));
     get('title').oninput = e => this._updateConfig('title', e.target.value);
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.onchange = () => this._updateConfig('graph_hours', parseInt(r.value)); });
