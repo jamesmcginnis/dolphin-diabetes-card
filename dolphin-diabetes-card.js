@@ -13,6 +13,8 @@ class DolphinDiabetesCard extends HTMLElement {
     this._longPressFired = false;
     this._popupOverlay = null;
     this._popupHours = 3;
+    this._predictionCache = null;      // { value, timestamp }
+    this._predictionFetching = false;
   }
 
   static getConfigElement() {
@@ -79,6 +81,7 @@ class DolphinDiabetesCard extends HTMLElement {
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
+    this._predictionCache = null; // invalidate on config change
   }
 
   set hass(hass) {
@@ -143,6 +146,64 @@ class DolphinDiabetesCard extends HTMLElement {
     if (n < this._lo()) return 'Low';
     if (n > this._hi()) return 'High';
     return 'In Range';
+  }
+
+  // ── 30-minute Glucose Prediction ──────────────────────────────────
+
+  async _fetchPrediction() {
+    if (!this._config.glucose_entity || !this._hass) return null;
+    try {
+      const end   = new Date();
+      const start = new Date(end - 40 * 60000); // last 40 minutes
+      const resp  = await this._hass.callApi('GET',
+        `history/period/${start.toISOString()}?filter_entity_id=${this._config.glucose_entity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
+      );
+      const raw  = resp?.[0] || [];
+      const data = raw.filter(s => !isNaN(parseFloat(s.state)));
+      if (data.length < 2) return null;
+
+      // Build (t, v) pairs — t in minutes from first reading
+      const t0     = new Date(data[0].last_changed || data[0].last_updated).getTime();
+      const points = data.map(s => ({
+        t: (new Date(s.last_changed || s.last_updated).getTime() - t0) / 60000,
+        v: parseFloat(s.state),
+      }));
+
+      // Weighted linear regression — more recent points get higher weight
+      const n   = points.length;
+      let sw = 0, swt = 0, swv = 0, swtt = 0, swtv = 0;
+      points.forEach((p, i) => {
+        const w = (i + 1);           // linear ramp: newest = highest weight
+        sw   += w;
+        swt  += w * p.t;
+        swv  += w * p.v;
+        swtt += w * p.t * p.t;
+        swtv += w * p.t * p.v;
+      });
+      const denom = sw * swtt - swt * swt;
+      if (Math.abs(denom) < 1e-10) return null;
+
+      const slope     = (sw * swtv - swt * swv) / denom;  // mmol (or mg/dL) per minute
+      const intercept = (swv - slope * swt) / sw;
+
+      // Predict at t = latest reading time + 30 min
+      const tLast    = points[points.length - 1].t;
+      const tPredict = tLast + 30;
+      const predicted = intercept + slope * tPredict;
+
+      // Sanity clamp: ±10 mmol/L or ±180 mg/dL from current
+      const current = points[points.length - 1].v;
+      const maxDelta = this._config.unit === 'mgdl' ? 180 : 10;
+      return Math.max(current - maxDelta, Math.min(current + maxDelta, predicted));
+    } catch {
+      return null;
+    }
+  }
+
+  _formatPrediction(val) {
+    const n = parseFloat(val);
+    if (isNaN(n)) return '--';
+    return this._config.unit === 'mgdl' ? Math.round(n).toString() : n.toFixed(1);
   }
 
   _getTrendInfo(trend) {
@@ -780,6 +841,25 @@ class DolphinDiabetesCard extends HTMLElement {
           text-transform: uppercase; margin-top: 2px; opacity: 0.7;
         }
 
+        .dg-centre-col {
+          flex: 1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 6px;
+        }
+        .dg-predict-pill {
+          display: flex; flex-direction: column; align-items: center;
+          padding: 5px 11px; border-radius: 16px;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+          transition: background 0.4s, color 0.4s;
+          border: 1px solid rgba(255,255,255,0.10);
+        }
+        .dg-predict-value {
+          font-size: 16px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
+        }
+        .dg-predict-label {
+          font-size: 7.5px; font-weight: 600; letter-spacing: 0.05em;
+          text-transform: uppercase; margin-top: 2px; opacity: 0.65;
+        }
+
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
           margin-top: 8px;
@@ -810,8 +890,12 @@ class DolphinDiabetesCard extends HTMLElement {
               </div>
             </div>
 
-            <div class="dg-centre">
+            <div class="dg-centre-col">
               <div class="dg-sensor-pill" id="dg-sensor-pill" style="display:none;"></div>
+              <div class="dg-predict-pill" id="dg-predict-pill" style="display:none;">
+                <span class="dg-predict-value" id="dg-predict-value">--</span>
+                <span class="dg-predict-label">30 min</span>
+              </div>
             </div>
 
             <div class="dg-trend-ring-block">
@@ -876,6 +960,13 @@ class DolphinDiabetesCard extends HTMLElement {
       });
       pillEl.addEventListener('mousedown', e => e.stopPropagation());
       pillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    }
+
+    const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
+    if (predictPillEl) {
+      predictPillEl.addEventListener('click',      e => { e.stopPropagation(); clearTimeout(this._longPressTimer); });
+      predictPillEl.addEventListener('mousedown',  e => e.stopPropagation());
+      predictPillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     }
   }
 
@@ -980,6 +1071,42 @@ class DolphinDiabetesCard extends HTMLElement {
         this._loadGraphInto(graphInner, false, parseInt(this._config.graph_hours) || 3)
           .finally(() => { this._historyFetching = false; });
       }
+    }
+
+    // ── 30-minute prediction ────────────────────────────────────────
+    const predictPill = root.getElementById('dg-predict-pill');
+    const predictVal  = root.getElementById('dg-predict-value');
+    if (predictPill && predictVal && this._config.glucose_entity) {
+      predictPill.style.display = 'flex';
+      // Use cache if < 5 minutes old
+      const now = Date.now();
+      const cacheAge = this._predictionCache ? now - this._predictionCache.timestamp : Infinity;
+      if (this._predictionCache && cacheAge < 300000) {
+        this._applyPredictionUI(predictPill, predictVal, this._predictionCache.value);
+      } else if (!this._predictionFetching) {
+        this._predictionFetching = true;
+        this._fetchPrediction().then(val => {
+          this._predictionCache = { value: val, timestamp: Date.now() };
+          this._applyPredictionUI(predictPill, predictVal, val);
+        }).finally(() => { this._predictionFetching = false; });
+      }
+    }
+  }
+
+  _applyPredictionUI(pill, valEl, val) {
+    const formatted = this._formatPrediction(val);
+    valEl.textContent = formatted;
+    if (val === null || isNaN(val)) {
+      pill.style.background = 'rgba(255,255,255,0.06)';
+      pill.style.borderColor = 'rgba(255,255,255,0.10)';
+      valEl.style.color = 'rgba(255,255,255,0.4)';
+      pill.querySelector('.dg-predict-label').style.color = 'rgba(255,255,255,0.4)';
+    } else {
+      const color = this._getStatusColor(val);
+      pill.style.background  = color + '1a';
+      pill.style.borderColor = color + '55';
+      valEl.style.color = color;
+      pill.querySelector('.dg-predict-label').style.color = color;
     }
   }
 }
