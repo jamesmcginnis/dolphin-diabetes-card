@@ -872,11 +872,11 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         ha-card:active { transform: scale(0.993); opacity: 0.9; }
 
-        .dg-inner { padding: 14px 16px 8px; }
+        .dg-inner { padding: 10px 12px 6px; }
 
         .dg-header {
           display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
         .dg-title {
           font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
@@ -888,8 +888,7 @@ class DolphinDiabetesCard extends HTMLElement {
         }
 
         .dg-main-row {
-          display: flex; align-items: flex-start;
-          justify-content: space-between;
+          display: flex; align-items: center; justify-content: space-between; gap: 6px;
         }
 
         @keyframes dgBreath {
@@ -901,14 +900,8 @@ class DolphinDiabetesCard extends HTMLElement {
           50%       { filter: drop-shadow(0 0 7px var(--dg-ring-color, rgba(255,255,255,0.3))); }
         }
 
-        /* Each column: ring + pill stacked, centred */
-        .dg-col {
-          display: flex; flex-direction: column;
-          align-items: center; gap: 6px;
-        }
-
         .dg-ring-block, .dg-trend-ring-block {
-          position: relative; flex-shrink: 0; width: 80px; height: 80px;
+          position: relative; flex-shrink: 0; width: 72px; height: 72px;
           animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
           cursor: pointer;
         }
@@ -921,45 +914,46 @@ class DolphinDiabetesCard extends HTMLElement {
           align-items: center; justify-content: center;
         }
         .dg-glucose-num {
-          font-size: 26px; font-weight: 700; letter-spacing: -1.5px;
+          font-size: 22px; font-weight: 700; letter-spacing: -1.5px;
           line-height: 1; transition: color 0.4s;
         }
         .dg-unit {
-          font-size: 8px; font-weight: 600;
+          font-size: 7px; font-weight: 600;
           color: rgba(255,255,255,0.38); margin-top: 2px;
         }
         .dg-trend-text {
-          font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em;
-          text-align: center; line-height: 1.25; max-width: 60px;
-          transition: color 0.4s; padding: 8px;
+          font-size: 8px; font-weight: 700; letter-spacing: 0.01em;
+          text-align: center; line-height: 1.25; max-width: 54px;
+          transition: color 0.4s; padding: 6px;
         }
 
-        /* Shared pill style used by both predict and sensor pills */
+        /* Centre zone: two pills side by side */
+        .dg-centre {
+          flex: 1; display: flex; align-items: center;
+          justify-content: center; gap: 6px;
+        }
+
+        /* Shared pill */
         .dg-sub-pill {
           display: flex; flex-direction: column; align-items: center;
-          padding: 5px 12px; border-radius: 16px;
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+          padding: 5px 10px; border-radius: 14px;
           transition: background 0.4s, color 0.4s, border-color 0.4s;
           border: 1px solid rgba(255,255,255,0.10);
-          cursor: pointer;
-          min-width: 62px;
+          cursor: pointer; min-width: 54px;
         }
         .dg-sub-pill-value {
-          font-size: 16px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
+          font-size: 14px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
         }
         .dg-sub-pill-label {
-          font-size: 7.5px; font-weight: 600; letter-spacing: 0.05em;
+          font-size: 7px; font-weight: 600; letter-spacing: 0.05em;
           text-transform: uppercase; margin-top: 2px; opacity: 0.65;
         }
 
-        /* Spacer used when a pill is hidden so the column height stays consistent */
-        .dg-pill-spacer { height: 38px; }
-
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
-          margin-top: 8px;
+          margin-top: 6px;
         }
-        .dg-graph-inner { height: 68px; position: relative; overflow: visible; }
+        .dg-graph-inner { height: 62px; position: relative; overflow: visible; }
       </style>
 
       <ha-card id="dg-card">
@@ -972,45 +966,43 @@ class DolphinDiabetesCard extends HTMLElement {
 
           <div class="dg-main-row">
 
-            <!-- Left column: glucose ring + 30-min prediction pill -->
-            <div class="dg-col">
-              <div class="dg-ring-block">
-                <svg viewBox="0 0 88 88" width="80" height="80">
-                  <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-                  <circle id="dg-ring-arc" cx="44" cy="44" r="34"
-                    fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                    style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
-                </svg>
-                <div class="dg-ring-center">
-                  <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
-                  <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
-                </div>
+            <!-- Glucose ring -->
+            <div class="dg-ring-block">
+              <svg viewBox="0 0 88 88" width="72" height="72">
+                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                <circle id="dg-ring-arc" cx="44" cy="44" r="34"
+                  fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+              </svg>
+              <div class="dg-ring-center">
+                <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
+                <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
               </div>
+            </div>
+
+            <!-- Centre: prediction + sensor pills side by side -->
+            <div class="dg-centre">
               <div class="dg-sub-pill" id="dg-predict-pill" style="display:none;">
                 <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
                 <span class="dg-sub-pill-label">30 min</span>
               </div>
-              <div class="dg-pill-spacer" id="dg-predict-spacer"></div>
-            </div>
-
-            <!-- Right column: trend ring + sensor days-left pill -->
-            <div class="dg-col">
-              <div class="dg-trend-ring-block">
-                <svg viewBox="0 0 88 88" width="80" height="80">
-                  <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-                  <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
-                    fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                    style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
-                </svg>
-                <div class="dg-trend-ring-center">
-                  <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.35)">--</span>
-                </div>
-              </div>
-              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none; cursor:pointer;">
+              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
                 <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
                 <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
               </div>
-              <div class="dg-pill-spacer" id="dg-sensor-spacer"></div>
+            </div>
+
+            <!-- Trend ring -->
+            <div class="dg-trend-ring-block">
+              <svg viewBox="0 0 88 88" width="72" height="72">
+                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
+                  fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
+                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+              </svg>
+              <div class="dg-trend-ring-center">
+                <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.35)">--</span>
+              </div>
             </div>
 
           </div>
@@ -1142,11 +1134,10 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
-    // ── Sensor pill (right column, beneath trend ring) ──────────────
+    // ── Sensor pill (centre, right pill) ────────────────────────────
     const sensorPillEl  = root.getElementById('dg-sensor-pill');
     const sensorValEl   = root.getElementById('dg-sensor-value');
     const sensorLblEl   = root.getElementById('dg-sensor-label');
-    const sensorSpacer  = root.getElementById('dg-sensor-spacer');
     if (sensorPillEl) {
       const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
       if (showPill) {
@@ -1168,10 +1159,8 @@ class DolphinDiabetesCard extends HTMLElement {
         sensorPillEl.style.borderColor = pillCol + '55';
         if (sensorValEl) { sensorValEl.textContent = valTxt; sensorValEl.style.color = pillCol; }
         if (sensorLblEl) { sensorLblEl.textContent = lblTxt; sensorLblEl.style.color = pillCol; }
-        if (sensorSpacer) sensorSpacer.style.display = 'none';
       } else {
         sensorPillEl.style.display = 'none';
-        if (sensorSpacer) sensorSpacer.style.display = 'block';
       }
     }
 
@@ -1184,13 +1173,11 @@ class DolphinDiabetesCard extends HTMLElement {
       }
     }
 
-    // ── 30-minute prediction (left column, beneath glucose ring) ─────
+    // ── 30-minute prediction (centre, left pill) ─────────────────────
     const predictPill = root.getElementById('dg-predict-pill');
     const predictVal  = root.getElementById('dg-predict-value');
-    const predictSpacer = root.getElementById('dg-predict-spacer');
     if (predictPill && predictVal && this._config.glucose_entity) {
       predictPill.style.display = 'flex';
-      if (predictSpacer) predictSpacer.style.display = 'none';
       const now = Date.now();
       const cacheAge = this._predictionCache ? now - this._predictionCache.timestamp : Infinity;
       if (this._predictionCache && cacheAge < 300000) {
@@ -1204,7 +1191,6 @@ class DolphinDiabetesCard extends HTMLElement {
       }
     } else if (predictPill) {
       predictPill.style.display = 'none';
-      if (predictSpacer) predictSpacer.style.display = 'block';
     }
   }
 
