@@ -1,6 +1,6 @@
 # 🐬 Dolphin Diabetes Card
 
-A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, optionally animated breathing rings, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
+A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, a 30-minute glucose forecast, optionally animated breathing rings, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
@@ -8,20 +8,14 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 
 ---
 
-![Preview 1](https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview1.png)
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview2.png" width="48%" />
-</p>
-
----
-
 ## ✨ Features
 
 - **Dual animated rings** — glucose level ring on the left, trend direction ring on the right, with an optional breathing glow that pulses in the current status colour
 - **Colour-coded readings** — green in range · red when low · amber when high, applied to both rings, the glucose number, and the trend label
+- **30-minute glucose forecast** — estimates where your glucose is likely to be in 30 minutes using a weighted linear regression over the last 40 minutes of readings; colour-coded to your configured thresholds
+- **Forecast popup** — tap the 30-min pill for a friendly, contextual message depending on whether your estimated glucose is low, high, or in range, along with a projected change from current
+- **Sensor life countdown** — optional pill showing days remaining on your current sensor, turns red on the last day
 - **Sensor unavailable state** — everything fades to grey when the sensor is offline or unavailable
-- **Sensor life countdown** — optional pill between the rings showing days remaining on your current sensor, turns red on the last day
 - **Trend ring** — fill level and label reflect direction (Rising Fast → Steady → Falling Fast) without cluttering the card with arrows
 - **Tap for details** — single tap opens an elegant popup with a large reading, trend ring, time range selector (1h–24h), history graph, and live sensor attributes
 - **Long press for more info** — opens the native Home Assistant entity detail screen
@@ -86,7 +80,7 @@ Everything else can be configured through the built-in visual editor. For manual
 | `graph_hours` | `1\|3\|6\|12\|24` | `3` | Default hours of history to display |
 | `breathing_effect` | `boolean` | `true` | Enable the pulsing glow animation on the rings and sensor pill |
 | `show_sensor_life` | `boolean` | `false` | Show the sensor life countdown pill |
-| `sensor_start_date` | `string` | — | Date you applied the current sensor (YYYY-MM-DD) |
+| `sensor_start_date` | `string` | — | ISO datetime when you applied the current sensor |
 | `sensor_duration_days` | `number` | `14` | How many days the sensor lasts |
 | `accent_color` | `string` | `#007AFF` | Ring and highlight colour |
 | `normal_color` | `string` | `#34C759` | In-range reading colour |
@@ -97,7 +91,7 @@ Everything else can be configured through the built-in visual editor. For manual
 | `sensor_pill_bg` | `string` | `#2c2c2e` | Sensor life pill background colour |
 | `sensor_pill_normal_color` | `string` | `#34C759` | Sensor pill text colour when days remain |
 | `sensor_pill_urgent_color` | `string` | `#FF3B30` | Sensor pill text colour on last day |
-| `card_bg` | `string` | `#1c1c1e` | Card background colour |
+| `card_bg` | `string` | `#1c1c1e` | Card background colour (use 8-digit hex for custom opacity, e.g. `#1c1c1e80`) |
 | `card_bg_opacity` | `number` | `80` | Card background opacity (0–100) |
 | `text_color` | `string` | `#ffffff` | Primary text colour |
 
@@ -116,7 +110,7 @@ show_graph: true
 graph_hours: 3
 breathing_effect: true
 show_sensor_life: true
-sensor_start_date: "2026-03-14"
+sensor_start_date: "2026-03-14T09:00:00.000Z"
 sensor_duration_days: 14
 accent_color: "#007AFF"
 normal_color: "#34C759"
@@ -139,7 +133,25 @@ text_color: "#ffffff"
 | Gesture | Action |
 |---|---|
 | **Tap** | Opens a detail popup with large reading, trend ring, selectable graph time range (1h–24h), and sensor attributes |
+| **Tap 30-min pill** | Opens a friendly forecast popup showing your estimated glucose in 30 minutes, projected change, and contextual guidance if trending low or high |
+| **Tap trend ring** | Opens a trend history popup showing the last 50 trend readings with timestamps |
+| **Tap sensor pill** | Opens a sensor life popup with applied date, expiry date, time remaining, and a progress ring |
 | **Long press** | Opens the native Home Assistant more-info panel for the glucose entity |
+
+---
+
+## 🔮 30-Minute Glucose Forecast
+
+The forecast pill sits between the two rings and estimates where your glucose is likely to be in 30 minutes. It uses a **weighted linear regression** over the last 40 minutes of readings from the HA history API, giving more weight to the most recent data points. The result is clamped to a sensible range and colour-coded using your configured low and high thresholds.
+
+Tapping the pill opens a friendly popup with:
+
+- Your estimated glucose value and unit
+- Whether it's projected to be low, in range, or high
+- A projected change from your current reading
+- A short, friendly message appropriate to the forecast — with a gentle reminder to follow your personal care plan if things look like they're heading out of range
+
+> **Note:** This is an estimate based on recent trend data, not a clinical measurement. Always follow your personal diabetes management plan.
 
 ---
 
