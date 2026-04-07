@@ -705,6 +705,109 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.appendChild(infoWrap);
   }
 
+  // ── Prediction Popup ───────────────────────────────────────────────
+
+  _openPredictionPopup() {
+    const cfg        = this._config;
+    const cache      = this._predictionCache;
+    const predicted  = cache?.value ?? null;
+    const current    = parseFloat(this._hass?.states[cfg.glucose_entity]?.state);
+    const color      = predicted !== null ? this._getStatusColor(predicted) : cfg.accent_color;
+    const lo         = this._lo();
+    const hi         = this._hi();
+    const unit       = this._unitLabel();
+    const fmtVal     = predicted !== null ? this._formatPrediction(predicted) : '--';
+    const isLow      = predicted !== null && predicted < lo;
+    const isHigh     = predicted !== null && predicted > hi;
+    const isInRange  = predicted !== null && !isLow && !isHigh;
+    const noData     = predicted === null;
+
+    let icon, headline, message, subMessage;
+
+    if (noData) {
+      icon       = '🔄';
+      headline   = 'Calculating…';
+      message    = 'Not enough recent data to estimate yet. Check back in a few minutes once more readings have come in.';
+      subMessage = null;
+    } else if (isLow) {
+      icon       = '⚠️';
+      headline   = 'Heads up — trending low';
+      message    = "Your glucose looks like it could be heading lower over the next 30 minutes. Now\u2019s a good time to check in with yourself and have something nearby just in case.";
+      subMessage = "If you\u2019re feeling any symptoms or are unsure, follow your personal care plan or speak with your healthcare team.";
+    } else if (isHigh) {
+      icon       = '💧';
+      headline   = 'Trending a little high';
+      message    = "It looks like your glucose may be on the higher side in 30 minutes. Staying hydrated and moving around a little can sometimes help \u2014 and it\u2019s worth keeping an eye on it.";
+      subMessage = "If you\u2019re unsure what to do or this keeps happening, your healthcare team is the best person to ask.";
+    } else {
+      icon       = '✨';
+      headline   = 'Looking good!';
+      message    = "Your glucose looks like it should stay nicely in range over the next 30 minutes. Keep doing what you\u2019re doing!";
+      subMessage = null;
+    }
+
+    const { popup } = this._makePopupShell('30‑Min Forecast');
+
+    // ── Hero block ──
+    const hero = document.createElement('div');
+    hero.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;`;
+    hero.innerHTML = `
+      <div>
+        <div style="font-size:38px;line-height:1;margin-bottom:6px;">${icon}</div>
+        <div style="font-size:16px;font-weight:700;color:${color};letter-spacing:-0.3px;">${headline}</div>
+        <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.35);">Estimated in 30 minutes</div>
+      </div>
+      <div style="text-align:center;flex-shrink:0;margin-left:12px;">
+        <div style="font-size:46px;font-weight:700;letter-spacing:-2px;line-height:1;color:${color};">${fmtVal}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:3px;">${unit}</div>
+        ${predicted !== null ? `<div style="display:inline-block;margin-top:6px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;background:${color}22;color:${color};border:1px solid ${color}44;">${isLow ? 'Low' : isHigh ? 'High' : 'In Range'}</div>` : ''}
+      </div>`;
+    popup.appendChild(hero);
+
+    // ── Divider ──
+    const div1 = document.createElement('div');
+    div1.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:14px;';
+    popup.appendChild(div1);
+
+    // ── Message card ──
+    const msgCard = document.createElement('div');
+    msgCard.style.cssText = `background:${color}12;border:1px solid ${color}30;border-radius:16px;padding:14px 16px;margin-bottom:${subMessage ? '10px' : '14px'};`;
+    msgCard.innerHTML = `<p style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.88);margin:0;">${message}</p>`;
+    popup.appendChild(msgCard);
+
+    if (subMessage) {
+      const subCard = document.createElement('div');
+      subCard.style.cssText = `background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:12px 16px;margin-bottom:14px;`;
+      subCard.innerHTML = `<p style="font-size:12px;line-height:1.6;color:rgba(255,255,255,0.50);margin:0;">${subMessage}</p>`;
+      popup.appendChild(subCard);
+    }
+
+    // ── Info row: current vs predicted ──
+    if (predicted !== null && !isNaN(current)) {
+      const delta     = predicted - current;
+      const deltaFmt  = (delta >= 0 ? '+' : '') + (cfg.unit === 'mgdl' ? Math.round(delta) : delta.toFixed(1));
+      const infoWrap  = document.createElement('div');
+      const rows = [
+        { label: 'Current glucose', value: `${this._formatGlucose(current)} ${unit}` },
+        { label: 'Estimated in 30 min', value: `${fmtVal} ${unit}` },
+        { label: 'Projected change', value: `${deltaFmt} ${unit}` },
+      ];
+      rows.forEach(({ label, value }) => {
+        const row = document.createElement('div');
+        row.className = 'dg-info-row';
+        row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value">${value}</span>`;
+        infoWrap.appendChild(row);
+      });
+      popup.appendChild(infoWrap);
+    }
+
+    // ── Disclaimer ──
+    const disc = document.createElement('div');
+    disc.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);';
+    disc.innerHTML = `<p style="font-size:10px;line-height:1.5;color:rgba(255,255,255,0.25);margin:0;text-align:center;">This is an estimate based on recent trends, not a medical reading. Always follow your personal care plan.</p>`;
+    popup.appendChild(disc);
+  }
+
   async _loadGraphInto(container, popupMode, hours) {
     if (!this._config.glucose_entity) return;
     const h = hours || this._config.graph_hours || 3;
@@ -785,7 +888,7 @@ class DolphinDiabetesCard extends HTMLElement {
         }
 
         .dg-main-row {
-          display: flex; align-items: center;
+          display: flex; align-items: flex-start;
           justify-content: space-between;
         }
 
@@ -797,12 +900,18 @@ class DolphinDiabetesCard extends HTMLElement {
           0%, 100% { filter: drop-shadow(0 0 2px var(--dg-ring-color, rgba(255,255,255,0.3))); }
           50%       { filter: drop-shadow(0 0 7px var(--dg-ring-color, rgba(255,255,255,0.3))); }
         }
+
+        /* Each column: ring + pill stacked, centred */
+        .dg-col {
+          display: flex; flex-direction: column;
+          align-items: center; gap: 6px;
+        }
+
         .dg-ring-block, .dg-trend-ring-block {
           position: relative; flex-shrink: 0; width: 80px; height: 80px;
           animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
           cursor: pointer;
         }
-        .dg-sensor-pill { cursor: pointer; }
         .dg-ring-block svg, .dg-trend-ring-block svg {
           position: absolute; top: 0; left: 0;
         }
@@ -825,40 +934,26 @@ class DolphinDiabetesCard extends HTMLElement {
           transition: color 0.4s; padding: 8px;
         }
 
-        .dg-centre { flex: 1; display: flex; align-items: center; justify-content: center; }
-        .dg-sensor-pill {
+        /* Shared pill style used by both predict and sensor pills */
+        .dg-sub-pill {
           display: flex; flex-direction: column; align-items: center;
-          padding: 6px 12px; border-radius: 20px;
+          padding: 5px 12px; border-radius: 16px;
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-          transition: background 0.4s, color 0.4s;
-          animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
-        }
-        .dg-sensor-pill-days {
-          font-size: 18px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
-        }
-        .dg-sensor-pill-label {
-          font-size: 8px; font-weight: 600; letter-spacing: 0.05em;
-          text-transform: uppercase; margin-top: 2px; opacity: 0.7;
-        }
-
-        .dg-centre-col {
-          flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 6px;
-        }
-        .dg-predict-pill {
-          display: flex; flex-direction: column; align-items: center;
-          padding: 5px 11px; border-radius: 16px;
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-          transition: background 0.4s, color 0.4s;
+          transition: background 0.4s, color 0.4s, border-color 0.4s;
           border: 1px solid rgba(255,255,255,0.10);
+          cursor: pointer;
+          min-width: 62px;
         }
-        .dg-predict-value {
+        .dg-sub-pill-value {
           font-size: 16px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
         }
-        .dg-predict-label {
+        .dg-sub-pill-label {
           font-size: 7.5px; font-weight: 600; letter-spacing: 0.05em;
           text-transform: uppercase; margin-top: 2px; opacity: 0.65;
         }
+
+        /* Spacer used when a pill is hidden so the column height stays consistent */
+        .dg-pill-spacer { height: 38px; }
 
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
@@ -877,37 +972,45 @@ class DolphinDiabetesCard extends HTMLElement {
 
           <div class="dg-main-row">
 
-            <div class="dg-ring-block">
-              <svg viewBox="0 0 88 88" width="80" height="80">
-                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-                <circle id="dg-ring-arc" cx="44" cy="44" r="34"
-                  fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
-              </svg>
-              <div class="dg-ring-center">
-                <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
-                <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
+            <!-- Left column: glucose ring + 30-min prediction pill -->
+            <div class="dg-col">
+              <div class="dg-ring-block">
+                <svg viewBox="0 0 88 88" width="80" height="80">
+                  <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                  <circle id="dg-ring-arc" cx="44" cy="44" r="34"
+                    fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
+                    style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                </svg>
+                <div class="dg-ring-center">
+                  <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
+                  <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
+                </div>
               </div>
+              <div class="dg-sub-pill" id="dg-predict-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
+                <span class="dg-sub-pill-label">30 min</span>
+              </div>
+              <div class="dg-pill-spacer" id="dg-predict-spacer"></div>
             </div>
 
-            <div class="dg-centre-col">
-              <div class="dg-sensor-pill" id="dg-sensor-pill" style="display:none;"></div>
-              <div class="dg-predict-pill" id="dg-predict-pill" style="display:none;">
-                <span class="dg-predict-value" id="dg-predict-value">--</span>
-                <span class="dg-predict-label">30 min</span>
+            <!-- Right column: trend ring + sensor days-left pill -->
+            <div class="dg-col">
+              <div class="dg-trend-ring-block">
+                <svg viewBox="0 0 88 88" width="80" height="80">
+                  <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                  <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
+                    fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
+                    style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                </svg>
+                <div class="dg-trend-ring-center">
+                  <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.35)">--</span>
+                </div>
               </div>
-            </div>
-
-            <div class="dg-trend-ring-block">
-              <svg viewBox="0 0 88 88" width="80" height="80">
-                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-                <circle id="dg-trend-ring-arc" cx="44" cy="44" r="34"
-                  fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
-              </svg>
-              <div class="dg-trend-ring-center">
-                <span class="dg-trend-text" id="dg-trend-text" style="color:rgba(255,255,255,0.35)">--</span>
+              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none; cursor:pointer;">
+                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
               </div>
+              <div class="dg-pill-spacer" id="dg-sensor-spacer"></div>
             </div>
 
           </div>
@@ -964,7 +1067,11 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
     if (predictPillEl) {
-      predictPillEl.addEventListener('click',      e => { e.stopPropagation(); clearTimeout(this._longPressTimer); });
+      predictPillEl.addEventListener('click', e => {
+        e.stopPropagation();
+        clearTimeout(this._longPressTimer);
+        if (!this._longPressFired) this._openPredictionPopup();
+      });
       predictPillEl.addEventListener('mousedown',  e => e.stopPropagation());
       predictPillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     }
@@ -1035,32 +1142,36 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
-    const pillEl = root.getElementById('dg-sensor-pill');
-    if (pillEl) {
+    // ── Sensor pill (right column, beneath trend ring) ──────────────
+    const sensorPillEl  = root.getElementById('dg-sensor-pill');
+    const sensorValEl   = root.getElementById('dg-sensor-value');
+    const sensorLblEl   = root.getElementById('dg-sensor-label');
+    const sensorSpacer  = root.getElementById('dg-sensor-spacer');
+    if (sensorPillEl) {
       const showPill = this._config.show_sensor_life && this._config.sensor_start_date;
       if (showPill) {
         const status       = this._getSensorStatus();
         const daysLeft     = status?.daysLeft ?? null;
         const hoursOverdue = status?.hoursOverdue ?? 0;
-        const bg           = this._config.sensor_pill_bg           || '#2c2c2e';
         const normalColor  = this._config.sensor_pill_normal_color || '#34C759';
         const urgentColor  = this._config.sensor_pill_urgent_color || '#FF3B30';
         const isExpired    = daysLeft !== null && daysLeft <= 0;
         const isUrgent     = daysLeft !== null && daysLeft <= 1;
         const pillCol      = isUrgent ? urgentColor : normalColor;
-        let label, sub;
-        if (daysLeft === null) { label = '?';                sub = ''; }
-        else if (isExpired)    { label = `${hoursOverdue}h`; sub = 'over'; }
-        else                   { label = `${daysLeft}`;      sub = 'days left'; }
-        pillEl.style.display    = 'flex';
-        pillEl.style.background = bg;
-        pillEl.style.setProperty('--dg-ring-color', pillCol);
-        pillEl.innerHTML = `
-          <span class="dg-sensor-pill-days" style="color:${pillCol};">${label}</span>
-          ${sub ? `<span class="dg-sensor-pill-label" style="color:${pillCol};">${sub}</span>` : ''}
-        `;
+        const bg           = this._config.sensor_pill_bg || '#2c2c2e';
+        let valTxt, lblTxt;
+        if (daysLeft === null)  { valTxt = '?';                lblTxt = 'days left'; }
+        else if (isExpired)     { valTxt = `${hoursOverdue}h`; lblTxt = 'overdue'; }
+        else                    { valTxt = `${daysLeft}`;      lblTxt = 'days left'; }
+        sensorPillEl.style.display     = 'flex';
+        sensorPillEl.style.background  = bg;
+        sensorPillEl.style.borderColor = pillCol + '55';
+        if (sensorValEl) { sensorValEl.textContent = valTxt; sensorValEl.style.color = pillCol; }
+        if (sensorLblEl) { sensorLblEl.textContent = lblTxt; sensorLblEl.style.color = pillCol; }
+        if (sensorSpacer) sensorSpacer.style.display = 'none';
       } else {
-        pillEl.style.display = 'none';
+        sensorPillEl.style.display = 'none';
+        if (sensorSpacer) sensorSpacer.style.display = 'block';
       }
     }
 
@@ -1073,12 +1184,13 @@ class DolphinDiabetesCard extends HTMLElement {
       }
     }
 
-    // ── 30-minute prediction ────────────────────────────────────────
+    // ── 30-minute prediction (left column, beneath glucose ring) ─────
     const predictPill = root.getElementById('dg-predict-pill');
     const predictVal  = root.getElementById('dg-predict-value');
+    const predictSpacer = root.getElementById('dg-predict-spacer');
     if (predictPill && predictVal && this._config.glucose_entity) {
       predictPill.style.display = 'flex';
-      // Use cache if < 5 minutes old
+      if (predictSpacer) predictSpacer.style.display = 'none';
       const now = Date.now();
       const cacheAge = this._predictionCache ? now - this._predictionCache.timestamp : Infinity;
       if (this._predictionCache && cacheAge < 300000) {
@@ -1090,6 +1202,9 @@ class DolphinDiabetesCard extends HTMLElement {
           this._applyPredictionUI(predictPill, predictVal, val);
         }).finally(() => { this._predictionFetching = false; });
       }
+    } else if (predictPill) {
+      predictPill.style.display = 'none';
+      if (predictSpacer) predictSpacer.style.display = 'block';
     }
   }
 
@@ -1097,16 +1212,18 @@ class DolphinDiabetesCard extends HTMLElement {
     const formatted = this._formatPrediction(val);
     valEl.textContent = formatted;
     if (val === null || isNaN(val)) {
-      pill.style.background = 'rgba(255,255,255,0.06)';
+      pill.style.background  = 'rgba(255,255,255,0.06)';
       pill.style.borderColor = 'rgba(255,255,255,0.10)';
       valEl.style.color = 'rgba(255,255,255,0.4)';
-      pill.querySelector('.dg-predict-label').style.color = 'rgba(255,255,255,0.4)';
+      const lbl = pill.querySelector('.dg-sub-pill-label');
+      if (lbl) lbl.style.color = 'rgba(255,255,255,0.4)';
     } else {
       const color = this._getStatusColor(val);
       pill.style.background  = color + '1a';
       pill.style.borderColor = color + '55';
       valEl.style.color = color;
-      pill.querySelector('.dg-predict-label').style.color = color;
+      const lbl = pill.querySelector('.dg-sub-pill-label');
+      if (lbl) lbl.style.color = color;
     }
   }
 }
