@@ -232,7 +232,7 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!glucoseValues || glucoseValues.length < 2) {
       return `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:12px;">Not enough data</div>`;
     }
-    const W = 400, H = popupMode ? 160 : 100;
+    const W = 400, H = popupMode ? 160 : 110;
     const pad = { top: 6, right: 8, bottom: 20, left: 8 };
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
@@ -872,11 +872,11 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         ha-card:active { transform: scale(0.993); opacity: 0.9; }
 
-        .dg-inner { padding: 12px 14px 10px; }
+        .dg-inner { padding: 16px 20px 12px; }
 
         .dg-header {
           display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 10px;
+          margin-bottom: 14px;
         }
         .dg-title {
           font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
@@ -887,8 +887,10 @@ class DolphinDiabetesCard extends HTMLElement {
           font-variant-numeric: tabular-nums; transition: color 0.4s;
         }
 
+        /* Three-zone layout fills full card width */
         .dg-main-row {
-          display: flex; align-items: center; gap: 14px;
+          display: flex; align-items: center;
+          justify-content: space-between;
         }
 
         @keyframes dgBreath {
@@ -896,82 +898,90 @@ class DolphinDiabetesCard extends HTMLElement {
           50%       { opacity: 0.65; }
         }
         @keyframes dgBreathGlow {
-          0%, 100% { filter: drop-shadow(0 0 3px var(--dg-ring-color, rgba(255,255,255,0.3))); }
-          50%       { filter: drop-shadow(0 0 10px var(--dg-ring-color, rgba(255,255,255,0.3))); }
+          0%, 100% { filter: drop-shadow(0 0 4px var(--dg-ring-color, rgba(255,255,255,0.3))); }
+          50%       { filter: drop-shadow(0 0 14px var(--dg-ring-color, rgba(255,255,255,0.3))); }
         }
 
-        /* Hero glucose ring — larger than before */
+        /* LEFT ZONE */
+        .dg-left-zone {
+          flex: 1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+        }
         .dg-ring-block {
-          position: relative; flex-shrink: 0; width: 96px; height: 96px;
+          position: relative; flex-shrink: 0; width: 110px; height: 110px;
           animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
           cursor: pointer;
         }
-        .dg-ring-block svg {
-          position: absolute; top: 0; left: 0;
-        }
+        .dg-ring-block svg { position: absolute; top: 0; left: 0; }
         .dg-ring-center {
           position: absolute; inset: 0;
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
         }
         .dg-glucose-num {
-          font-size: 30px; font-weight: 700; letter-spacing: -2px;
+          font-size: 34px; font-weight: 700; letter-spacing: -2px;
           line-height: 1; transition: color 0.4s;
         }
         .dg-unit {
-          font-size: 8px; font-weight: 600;
+          font-size: 9px; font-weight: 600;
           color: rgba(255,255,255,0.38); margin-top: 3px;
         }
-
-        /* Right side: trend + pills stacked vertically */
-        .dg-right {
-          flex: 1; display: flex; flex-direction: column;
-          justify-content: center; gap: 8px;
+        .dg-status-badge {
+          margin-top: 8px; padding: 3px 14px; border-radius: 20px;
+          font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+          transition: background 0.4s, color 0.4s, border-color 0.4s;
         }
 
-        /* Trend arrow row */
-        .dg-trend-row {
-          display: flex; align-items: center; gap: 8px;
+        /* Dividers between zones */
+        .dg-divider {
+          width: 1px; align-self: stretch;
+          background: rgba(255,255,255,0.08);
+          margin: 4px 0; flex-shrink: 0;
+        }
+
+        /* CENTRE ZONE — trend */
+        .dg-centre-zone {
+          flex: 1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 4px;
+          cursor: pointer; padding: 0 12px;
         }
         .dg-trend-arrow {
-          font-size: 28px; line-height: 1; transition: color 0.4s;
-          display: inline-block;
+          font-size: 44px; line-height: 1; transition: color 0.4s;
         }
         .dg-trend-label {
           font-size: 13px; font-weight: 600; transition: color 0.4s;
-          line-height: 1.2;
+          text-align: center;
         }
         .dg-trend-sublabel {
-          font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35);
-          margin-top: 2px;
+          font-size: 10px; font-weight: 500;
+          color: rgba(255,255,255,0.35); text-align: center;
         }
 
-        /* Pills row — sits below trend */
-        .dg-pills-row {
-          display: flex; align-items: center; gap: 6px;
+        /* RIGHT ZONE — pills stacked */
+        .dg-right-zone {
+          flex: 1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 8px;
         }
-
-        /* Shared pill */
         .dg-sub-pill {
           display: flex; flex-direction: column; align-items: center;
-          padding: 5px 10px; border-radius: 14px;
+          padding: 8px 16px; border-radius: 14px; width: 100%; max-width: 130px;
           transition: background 0.4s, color 0.4s, border-color 0.4s;
           border: 1px solid rgba(255,255,255,0.10);
-          cursor: pointer; min-width: 54px;
+          cursor: pointer;
         }
         .dg-sub-pill-value {
-          font-size: 14px; font-weight: 700; letter-spacing: -0.5px; line-height: 1;
+          font-size: 22px; font-weight: 700; letter-spacing: -1px; line-height: 1;
         }
         .dg-sub-pill-label {
-          font-size: 7px; font-weight: 600; letter-spacing: 0.05em;
-          text-transform: uppercase; margin-top: 2px; opacity: 0.65;
+          font-size: 9px; font-weight: 600; letter-spacing: 0.05em;
+          text-transform: uppercase; margin-top: 3px; opacity: 0.65;
         }
 
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
-          margin-top: 10px;
+          margin-top: 14px;
         }
-        .dg-graph-inner { height: 82px; position: relative; overflow: visible; }
+        .dg-graph-inner { height: 90px; position: relative; overflow: visible; }
       </style>
 
       <ha-card id="dg-card">
@@ -984,44 +994,44 @@ class DolphinDiabetesCard extends HTMLElement {
 
           <div class="dg-main-row">
 
-            <!-- Hero glucose ring — larger -->
-            <div class="dg-ring-block">
-              <svg viewBox="0 0 88 88" width="96" height="96">
-                <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-                <circle id="dg-ring-arc" cx="44" cy="44" r="34"
-                  fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
-                  style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
-              </svg>
-              <div class="dg-ring-center">
-                <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
-                <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
+            <!-- LEFT ZONE: glucose ring + status badge -->
+            <div class="dg-left-zone">
+              <div class="dg-ring-block">
+                <svg viewBox="0 0 88 88" width="110" height="110">
+                  <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                  <circle id="dg-ring-arc" cx="44" cy="44" r="34"
+                    fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"
+                    style="stroke-dasharray:${circ};stroke-dashoffset:${circ*0.5};transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset 0.7s ease,stroke 0.4s ease;"/>
+                </svg>
+                <div class="dg-ring-center">
+                  <span class="dg-glucose-num" id="dg-glucose-num" style="color:${accent}"><span id="dg-glucose">--</span></span>
+                  <span class="dg-unit" id="dg-unit">${this._unitLabel()}</span>
+                </div>
               </div>
+              <div class="dg-status-badge" id="dg-status-badge" style="background:${accent}22;color:${accent};border:1px solid ${accent}44;">--</div>
             </div>
 
-            <!-- Right side: trend arrow + pills stacked -->
-            <div class="dg-right">
+            <div class="dg-divider"></div>
 
-              <!-- Trend arrow row (replaces trend ring) -->
-              <div class="dg-trend-row" id="dg-trend-row" style="cursor:pointer;">
-                <span class="dg-trend-arrow" id="dg-trend-arrow" style="color:rgba(255,255,255,0.3);">→</span>
-                <div>
-                  <div class="dg-trend-label" id="dg-trend-text" style="color:rgba(255,255,255,0.35);">--</div>
-                  <div class="dg-trend-sublabel">Trend</div>
-                </div>
+            <!-- CENTRE ZONE: trend arrow -->
+            <div class="dg-centre-zone" id="dg-trend-row">
+              <span class="dg-trend-arrow" id="dg-trend-arrow" style="color:rgba(255,255,255,0.25);">→</span>
+              <div class="dg-trend-label" id="dg-trend-text" style="color:rgba(255,255,255,0.35);">--</div>
+              <div class="dg-trend-sublabel">Trend</div>
+            </div>
+
+            <div class="dg-divider"></div>
+
+            <!-- RIGHT ZONE: pills stacked -->
+            <div class="dg-right-zone">
+              <div class="dg-sub-pill" id="dg-predict-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
+                <span class="dg-sub-pill-label">30 min</span>
               </div>
-
-              <!-- Pills row below trend -->
-              <div class="dg-pills-row">
-                <div class="dg-sub-pill" id="dg-predict-pill" style="display:none;">
-                  <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
-                  <span class="dg-sub-pill-label">30 min</span>
-                </div>
-                <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
-                  <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
-                  <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
-                </div>
+              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
               </div>
-
             </div>
 
           </div>
@@ -1140,6 +1150,14 @@ class DolphinDiabetesCard extends HTMLElement {
     if (trendTextEl) {
       trendTextEl.textContent = trendInfo?.label || (trendVal ? trendVal : '--');
       trendTextEl.style.color = displayColor;
+    }
+
+    const badgeEl = root.getElementById('dg-status-badge');
+    if (badgeEl) {
+      badgeEl.textContent       = this._getStatusLabel(glucoseVal);
+      badgeEl.style.background  = displayColor + '22';
+      badgeEl.style.color       = displayColor;
+      badgeEl.style.border      = `1px solid ${displayColor}44`;
     }
 
     const timeEl = root.getElementById('dg-time-ago');
