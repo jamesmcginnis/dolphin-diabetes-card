@@ -2,6 +2,8 @@
 
 A sleek Home Assistant dashboard card for monitoring blood glucose levels at a glance.
 
+![Dolphin Diabetes Card preview](https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview.png)
+
 ---
 
 ## What it shows
@@ -26,7 +28,7 @@ Thin dividers separate each zone, and a full-width history graph runs across the
 
 ## Tap and long press
 
-A single tap opens a detail popup with a large reading, trend ring, a 1h/3h/6h/12h/24h time range selector for the graph, and any available sensor attributes such as delta, battery, and transmitter ID.
+A single tap opens a detail popup with a large reading, trend arrow, a 1h/3h/6h/12h/24h time range selector for the graph, and any available sensor attributes such as delta, battery, and transmitter ID.
 
 Tapping the **30-min pill** opens a forecast popup with your estimated glucose, projected change, and a short friendly message if things are heading low or high — without offering medical advice.
 
