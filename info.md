@@ -6,13 +6,23 @@ A sleek Home Assistant dashboard card for monitoring blood glucose levels at a g
 
 ## What it shows
 
-- **Glucose ring** — animated ring on the left fills and colour-codes your current reading (green in range, red low, amber high), with an optional breathing glow
-- **Trend ring** — matching ring on the right shows direction (Rising Fast → Steady → Falling Fast) via fill level and label
+- **Glucose ring** — animated ring on the left fills and colour-codes your current reading (green in range, red low, amber high), with an optional breathing glow. A status badge beneath the ring shows In Range, Low, or High at a glance
+- **Trend arrow** — large directional arrow in the centre zone shows your current trend direction (↑↑ Rising Fast → → Steady → ↓↓ Falling Fast) with a label beneath; tap to view recent trend history
 - **30-minute forecast pill** — estimates your glucose 30 minutes into the future using a weighted linear regression over recent readings; colour-coded to your configured thresholds; tap for a friendly contextual message
-- **Sensor life pill** — optional countdown showing days remaining on your current sensor; turns red on the last day with its own breathing glow
-- **History graph** — colour-coded line segments with threshold guide lines, fetched from your HA history
+- **Sensor life pill** — optional countdown showing days remaining on your current sensor; turns red on the last day
+- **History graph** — full-width colour-coded line segments with threshold guide lines, fetched from your HA history
 - **Stale data warning** — the header timestamp turns amber if the reading is more than 15 minutes old
 - **Sensor unavailable** — the whole card gracefully fades to grey when the sensor goes offline
+
+## Layout
+
+The card uses a three-zone layout designed for full-width dashboard panels:
+
+- **Left zone** — glucose ring with status badge below
+- **Centre zone** — trend arrow and direction label
+- **Right zone** — 30-min forecast pill and sensor life pill stacked vertically
+
+Thin dividers separate each zone, and a full-width history graph runs across the bottom of the card.
 
 ## Tap and long press
 
@@ -20,7 +30,7 @@ A single tap opens a detail popup with a large reading, trend ring, a 1h/3h/6h/1
 
 Tapping the **30-min pill** opens a forecast popup with your estimated glucose, projected change, and a short friendly message if things are heading low or high — without offering medical advice.
 
-Tapping the **trend ring** opens a trend history popup showing the last 50 readings with timestamps.
+Tapping the **trend arrow** opens a trend history popup showing the last 50 readings with timestamps.
 
 Tapping the **sensor pill** opens a sensor life popup with applied date, expiry, time remaining, and a progress ring.
 
