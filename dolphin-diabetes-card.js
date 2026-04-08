@@ -886,8 +886,11 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         .dg-ring-block {
           position: relative; flex-shrink: 0; width: 110px; height: 110px;
-          animation: ${cfg.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none'};
+          animation: none;
           cursor: pointer;
+        }
+        .dg-ring-block.dg-breathing {
+          animation: dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite;
         }
         .dg-ring-block svg { position: absolute; top: 0; left: 0; }
         .dg-ring-center {
@@ -1023,6 +1026,9 @@ class DolphinDiabetesCard extends HTMLElement {
       </ha-card>`;
 
     this._setupInteractions();
+    // Apply breathing class immediately — doesn't need hass
+    const ringBlock = this.shadowRoot.querySelector('.dg-ring-block');
+    if (ringBlock) ringBlock.classList.toggle('dg-breathing', this._config.breathing_effect !== false);
     this._updateCard();
   }
 
@@ -1116,7 +1122,10 @@ class DolphinDiabetesCard extends HTMLElement {
       ringEl.style.strokeDashoffset = circ * (1 - pct);
       ringEl.style.stroke = displayColor;
     }
-    if (ringBlock) ringBlock.style.setProperty('--dg-ring-color', displayColor);
+    if (ringBlock) {
+      ringBlock.style.setProperty('--dg-ring-color', displayColor);
+      ringBlock.classList.toggle('dg-breathing', this._config.breathing_effect !== false);
+    }
 
     const trendArrowEl = root.getElementById('dg-trend-arrow');
     const trendTextEl  = root.getElementById('dg-trend-text');
