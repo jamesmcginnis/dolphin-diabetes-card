@@ -48,7 +48,6 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF3B30',
-      breathing_effect: true,
     };
   }
 
@@ -77,7 +76,6 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF3B30',
-      breathing_effect: true,
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
@@ -870,15 +868,6 @@ class DolphinDiabetesCard extends HTMLElement {
           justify-content: space-between;
         }
 
-        @keyframes dgBreath {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.65; }
-        }
-        @keyframes dgBreathGlow {
-          0%, 100% { filter: drop-shadow(0 0 4px var(--dg-ring-color, rgba(255,255,255,0.3))); }
-          50%       { filter: drop-shadow(0 0 14px var(--dg-ring-color, rgba(255,255,255,0.3))); }
-        }
-
         /* LEFT ZONE */
         .dg-left-zone {
           flex: 1; display: flex; flex-direction: column;
@@ -1022,9 +1011,6 @@ class DolphinDiabetesCard extends HTMLElement {
       </ha-card>`;
 
     this._setupInteractions();
-    // Apply breathing animation immediately — doesn't need hass
-    const ringBlock = this.shadowRoot.querySelector('.dg-ring-block');
-    if (ringBlock) ringBlock.style.animation = this._config.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none';
     this._updateCard();
   }
 
@@ -1120,7 +1106,6 @@ class DolphinDiabetesCard extends HTMLElement {
     }
     if (ringBlock) {
       ringBlock.style.setProperty('--dg-ring-color', displayColor);
-      ringBlock.style.animation = this._config.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none';
     }
 
     const trendArrowEl = root.getElementById('dg-trend-arrow');
@@ -1540,15 +1525,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
                   <input type="checkbox" id="show_sensor_life" ${cfg.show_sensor_life ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
-              <div class="toggle-item">
-                <div>
-                  <div class="toggle-label">Breathing Effect</div>
-                  <div class="toggle-sublabel">Pulsing glow animation on the rings</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="breathing_effect" ${cfg.breathing_effect !== false ? 'checked' : ''}><span class="toggle-track"></span>
-                </label>
-              </div>
             </div>
           </div>
         </div>
@@ -1715,7 +1691,6 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         }
       }
     };
-    get('breathing_effect').onclick = e => this._updateConfig('breathing_effect', e.target.checked);
 
     const confirmBtn = root.getElementById('sensor_confirm_btn');
     if (confirmBtn) {
