@@ -886,11 +886,7 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         .dg-ring-block {
           position: relative; flex-shrink: 0; width: 110px; height: 110px;
-          animation: none;
           cursor: pointer;
-        }
-        .dg-ring-block.dg-breathing {
-          animation: dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite;
         }
         .dg-ring-block svg { position: absolute; top: 0; left: 0; }
         .dg-ring-center {
@@ -1026,9 +1022,9 @@ class DolphinDiabetesCard extends HTMLElement {
       </ha-card>`;
 
     this._setupInteractions();
-    // Apply breathing class immediately — doesn't need hass
+    // Apply breathing animation immediately — doesn't need hass
     const ringBlock = this.shadowRoot.querySelector('.dg-ring-block');
-    if (ringBlock) ringBlock.classList.toggle('dg-breathing', this._config.breathing_effect !== false);
+    if (ringBlock) ringBlock.style.animation = this._config.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none';
     this._updateCard();
   }
 
@@ -1124,7 +1120,7 @@ class DolphinDiabetesCard extends HTMLElement {
     }
     if (ringBlock) {
       ringBlock.style.setProperty('--dg-ring-color', displayColor);
-      ringBlock.classList.toggle('dg-breathing', this._config.breathing_effect !== false);
+      ringBlock.style.animation = this._config.breathing_effect !== false ? 'dgBreath 3s ease-in-out infinite, dgBreathGlow 3s ease-in-out infinite' : 'none';
     }
 
     const trendArrowEl = root.getElementById('dg-trend-arrow');
@@ -1719,7 +1715,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         }
       }
     };
-    get('breathing_effect').onchange = e => this._updateConfig('breathing_effect', e.target.checked);
+    get('breathing_effect').onclick = e => this._updateConfig('breathing_effect', e.target.checked);
 
     const confirmBtn = root.getElementById('sensor_confirm_btn');
     if (confirmBtn) {
