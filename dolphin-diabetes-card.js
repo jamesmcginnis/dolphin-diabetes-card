@@ -368,21 +368,11 @@ class DolphinDiabetesCard extends HTMLElement {
         <span style="font-size:11px;color:rgba(255,255,255,0.35);">${timeAgoStr}</span>
       </div>`;
 
-    const circ = 2 * Math.PI * 34;
-    const trendPct = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
     const trendRight = document.createElement('div');
-    trendRight.style.cssText = 'flex-shrink:0;margin-left:12px;';
+    trendRight.style.cssText = 'flex-shrink:0;margin-left:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:60px;';
     trendRight.innerHTML = `
-      <div style="position:relative;width:72px;height:72px;">
-        <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
-          <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-          <circle cx="44" cy="44" r="34" fill="none" stroke="${statusColor}" stroke-width="5" stroke-linecap="round"
-            style="stroke-dasharray:${circ};stroke-dashoffset:${(circ*(1-trendPct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
-        </svg>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;">
-          <span style="font-size:9.5px;font-weight:700;color:${statusColor};text-align:center;line-height:1.25;">${trendText}</span>
-        </div>
-      </div>`;
+      <span style="font-size:48px;line-height:1;color:${statusColor};">${trendInfo ? this._trendArrow(trendInfo.deg) : '—'}</span>
+      <span style="font-size:11px;font-weight:600;color:${statusColor};text-align:center;">${trendText}</span>`;
 
     readingRow.appendChild(readingLeft);
     readingRow.appendChild(trendRight);
@@ -539,26 +529,13 @@ class DolphinDiabetesCard extends HTMLElement {
     const trendVal   = trendState?.state || trendState?.attributes?.trend || trendState?.attributes?.trend_description;
     const trendInfo  = this._getTrendInfo(trendVal);
     const trendText  = trendInfo?.label || (trendVal ? trendVal : '—');
-    const circ       = 2 * Math.PI * 34;
-    const trendPct   = trendInfo ? Math.max(0.08, 1 - (trendInfo.deg / 180)) : 0.5;
-
     const heroRow = document.createElement('div');
-    heroRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    heroRow.style.cssText = 'display:flex;align-items:center;gap:16px;margin-bottom:16px;';
     heroRow.innerHTML = `
+      <span style="font-size:56px;line-height:1;color:${statusColor};flex-shrink:0;">${trendInfo ? this._trendArrow(trendInfo.deg) : '—'}</span>
       <div>
-        <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;color:${statusColor};">${trendInfo ? this._trendArrow(trendInfo.deg) : '—'}</div>
-        <div style="margin-top:4px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.75);">${trendText}</div>
-        <div style="margin-top:2px;font-size:11px;color:rgba(255,255,255,0.35);">Current trend</div>
-      </div>
-      <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
-        <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
-          <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
-          <circle cx="44" cy="44" r="34" fill="none" stroke="${statusColor}" stroke-width="5" stroke-linecap="round"
-            style="stroke-dasharray:${circ};stroke-dashoffset:${(circ*(1-trendPct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
-        </svg>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;">
-          <span style="font-size:9.5px;font-weight:700;color:${statusColor};text-align:center;line-height:1.25;">${trendText}</span>
-        </div>
+        <div style="font-size:18px;font-weight:700;color:${statusColor};letter-spacing:-0.3px;">${trendText}</div>
+        <div style="margin-top:3px;font-size:11px;color:rgba(255,255,255,0.35);">Current trend</div>
       </div>`;
     popup.appendChild(heroRow);
 
