@@ -1,6 +1,6 @@
 # 🐬 Dolphin Diabetes Card
 
-A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, a 30-minute glucose forecast, optionally animated breathing rings, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
+A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for monitoring blood glucose levels. Displays your current reading, trend direction, a 30-minute glucose forecast, a sensor life countdown, and an optional historical graph — all configurable without writing a single line of YAML.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
@@ -15,7 +15,7 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 ## ✨ Features
 
 - **Three-zone layout** — designed for full-width dashboard panels; glucose ring on the left, trend arrow in the centre, forecast and sensor pills on the right, with a full-width history graph below
-- **Animated glucose ring** — fills and colour-codes your current reading with an optional breathing glow that pulses in the current status colour; a status badge beneath the ring shows In Range, Low, or High at a glance
+- **Animated glucose ring** — fills and colour-codes your current reading; a status badge beneath the ring shows In Range, Low, or High at a glance
 - **Colour-coded readings** — green in range · red when low · amber when high, applied to the ring, glucose number, status badge, and trend arrow
 - **Trend arrow** — large directional arrow (↑↑ → ↓↓) with direction label; tap to view the last 50 trend readings with timestamps
 - **30-minute glucose forecast** — estimates where your glucose is likely to be in 30 minutes using a weighted linear regression over the last 40 minutes of readings; colour-coded to your configured thresholds
@@ -83,7 +83,6 @@ Everything else can be configured through the built-in visual editor. For manual
 | `title` | `string` | `Blood Sugar` | Card title text |
 | `show_graph` | `boolean` | `true` | Show the historical blood sugar graph on the card |
 | `graph_hours` | `1\|3\|6\|12\|24` | `3` | Default hours of history to display |
-| `breathing_effect` | `boolean` | `true` | Enable the pulsing glow animation on the glucose ring |
 | `show_sensor_life` | `boolean` | `false` | Show the sensor life countdown pill |
 | `sensor_start_date` | `string` | — | ISO datetime when you applied the current sensor |
 | `sensor_duration_days` | `number` | `14` | How many days the sensor lasts |
@@ -113,7 +112,6 @@ show_title: true
 title: Blood Sugar
 show_graph: true
 graph_hours: 3
-breathing_effect: true
 show_sensor_life: true
 sensor_start_date: "2026-03-14T09:00:00.000Z"
 sensor_duration_days: 14
@@ -162,13 +160,20 @@ Tapping the pill opens a friendly popup with:
 
 ## 🩸 Supported Integrations
 
-This card is designed exclusively for use with the [Dexcom](https://www.home-assistant.io/integrations/dexcom/) integration, which is built into Home Assistant.
+The card works with any Home Assistant sensor that provides a numeric glucose value. Tested with:
+
+- [Dexcom](https://www.home-assistant.io/integrations/dexcom/) (built-in HA integration)
+- [Nightscout](https://github.com/dhomeier/nightscout-hacs) via HACS
+- [xDrip+](https://github.com/blobsmith/xdrip) via MQTT or REST sensor
+- Any `sensor` entity whose `state` is a numeric glucose value
 
 ### Supported Trend Values
 
-The following Dexcom trend values are supported:
+The card automatically detects trend direction from a wide range of state strings:
 
-`doubleUp` · `singleUp` · `fortyFiveUp` · `flat` · `fortyFiveDown` · `singleDown` · `doubleDown`
+`rising_quickly` · `rising` · `rising_slightly` · `flat` · `falling_slightly` · `falling` · `falling_quickly`
+
+Dexcom-style values are also supported: `doubleUp` · `singleUp` · `fortyFiveUp` · `flat` · `fortyFiveDown` · `singleDown` · `doubleDown`
 
 ---
 
