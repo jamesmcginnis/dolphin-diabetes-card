@@ -48,4 +48,4 @@ Everything is configurable through the built-in visual editor — no YAML needed
 
 ## Supported integrations
 
-Works with any numeric glucose sensor in Home Assistant, including Dexcom, Nightscout, xDrip+, and custom REST or MQTT sensors.
+This card is designed exclusively for use with the [Dexcom](https://www.home-assistant.io/integrations/dexcom/) integration, which is built into Home Assistant.
