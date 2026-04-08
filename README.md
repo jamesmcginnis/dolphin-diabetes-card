@@ -162,20 +162,13 @@ Tapping the pill opens a friendly popup with:
 
 ## 🩸 Supported Integrations
 
-The card works with any Home Assistant sensor that provides a numeric glucose value. Tested with:
-
-- [Dexcom](https://www.home-assistant.io/integrations/dexcom/) (built-in HA integration)
-- [Nightscout](https://github.com/dhomeier/nightscout-hacs) via HACS
-- [xDrip+](https://github.com/blobsmith/xdrip) via MQTT or REST sensor
-- Any `sensor` entity whose `state` is a numeric glucose value
+This card is designed exclusively for use with the [Dexcom](https://www.home-assistant.io/integrations/dexcom/) integration, which is built into Home Assistant.
 
 ### Supported Trend Values
 
-The card automatically detects trend direction from a wide range of state strings:
+The following Dexcom trend values are supported:
 
-`rising_quickly` · `rising` · `rising_slightly` · `flat` · `falling_slightly` · `falling` · `falling_quickly`
-
-Dexcom-style values are also supported: `doubleUp` · `singleUp` · `fortyFiveUp` · `flat` · `fortyFiveDown` · `singleDown` · `doubleDown`
+`doubleUp` · `singleUp` · `fortyFiveUp` · `flat` · `fortyFiveDown` · `singleDown` · `doubleDown`
 
 ---
 
