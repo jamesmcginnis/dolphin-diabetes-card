@@ -943,7 +943,7 @@ class DolphinDiabetesCard extends HTMLElement {
         .dg-centre-zone {
           flex: 1; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 4px;
-          cursor: pointer; padding: 0 12px;
+          cursor: pointer; padding: 0 16px;
         }
         .dg-trend-arrow {
           font-size: 44px; line-height: 1; transition: color 0.4s;
@@ -961,10 +961,11 @@ class DolphinDiabetesCard extends HTMLElement {
         .dg-right-zone {
           flex: 1; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 8px;
+          padding: 0 16px;
         }
         .dg-sub-pill {
           display: flex; flex-direction: column; align-items: center;
-          padding: 8px 16px; border-radius: 14px; width: 100%; max-width: 130px;
+          padding: 8px 20px; border-radius: 14px; width: auto;
           transition: background 0.4s, color 0.4s, border-color 0.4s;
           border: 1px solid rgba(255,255,255,0.10);
           cursor: pointer;
