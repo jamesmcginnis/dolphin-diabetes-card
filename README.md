@@ -10,16 +10,17 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 
 ## ✨ Features
 
-- **Dual animated rings** — glucose level ring on the left, trend direction ring on the right, with an optional breathing glow that pulses in the current status colour
-- **Colour-coded readings** — green in range · red when low · amber when high, applied to both rings, the glucose number, and the trend label
+- **Three-zone layout** — designed for full-width dashboard panels; glucose ring on the left, trend arrow in the centre, forecast and sensor pills on the right, with a full-width history graph below
+- **Animated glucose ring** — fills and colour-codes your current reading with an optional breathing glow that pulses in the current status colour; a status badge beneath the ring shows In Range, Low, or High at a glance
+- **Colour-coded readings** — green in range · red when low · amber when high, applied to the ring, glucose number, status badge, and trend arrow
+- **Trend arrow** — large directional arrow (↑↑ → ↓↓) with direction label; tap to view the last 50 trend readings with timestamps
 - **30-minute glucose forecast** — estimates where your glucose is likely to be in 30 minutes using a weighted linear regression over the last 40 minutes of readings; colour-coded to your configured thresholds
 - **Forecast popup** — tap the 30-min pill for a friendly, contextual message depending on whether your estimated glucose is low, high, or in range, along with a projected change from current
 - **Sensor life countdown** — optional pill showing days remaining on your current sensor, turns red on the last day
 - **Sensor unavailable state** — everything fades to grey when the sensor is offline or unavailable
-- **Trend ring** — fill level and label reflect direction (Rising Fast → Steady → Falling Fast) without cluttering the card with arrows
 - **Tap for details** — single tap opens an elegant popup with a large reading, trend ring, time range selector (1h–24h), history graph, and live sensor attributes
 - **Long press for more info** — opens the native Home Assistant entity detail screen
-- **Historical graph** — colour-coded line segments, threshold guide lines, and gradient fill fetched directly from the HA history API
+- **Historical graph** — full-width colour-coded line segments, threshold guide lines, and gradient fill fetched directly from the HA history API
 - **Stale reading warning** — timestamp in the header turns amber when data is older than 15 minutes
 - **Full visual editor** — every option configurable from the UI, no YAML required
 
@@ -78,7 +79,7 @@ Everything else can be configured through the built-in visual editor. For manual
 | `title` | `string` | `Blood Sugar` | Card title text |
 | `show_graph` | `boolean` | `true` | Show the historical blood sugar graph on the card |
 | `graph_hours` | `1\|3\|6\|12\|24` | `3` | Default hours of history to display |
-| `breathing_effect` | `boolean` | `true` | Enable the pulsing glow animation on the rings and sensor pill |
+| `breathing_effect` | `boolean` | `true` | Enable the pulsing glow animation on the glucose ring |
 | `show_sensor_life` | `boolean` | `false` | Show the sensor life countdown pill |
 | `sensor_start_date` | `string` | — | ISO datetime when you applied the current sensor |
 | `sensor_duration_days` | `number` | `14` | How many days the sensor lasts |
@@ -134,7 +135,7 @@ text_color: "#ffffff"
 |---|---|
 | **Tap** | Opens a detail popup with large reading, trend ring, selectable graph time range (1h–24h), and sensor attributes |
 | **Tap 30-min pill** | Opens a friendly forecast popup showing your estimated glucose in 30 minutes, projected change, and contextual guidance if trending low or high |
-| **Tap trend ring** | Opens a trend history popup showing the last 50 trend readings with timestamps |
+| **Tap trend arrow** | Opens a trend history popup showing the last 50 trend readings with timestamps |
 | **Tap sensor pill** | Opens a sensor life popup with applied date, expiry date, time remaining, and a progress ring |
 | **Long press** | Opens the native Home Assistant more-info panel for the glucose entity |
 
@@ -142,7 +143,7 @@ text_color: "#ffffff"
 
 ## 🔮 30-Minute Glucose Forecast
 
-The forecast pill sits between the two rings and estimates where your glucose is likely to be in 30 minutes. It uses a **weighted linear regression** over the last 40 minutes of readings from the HA history API, giving more weight to the most recent data points. The result is clamped to a sensible range and colour-coded using your configured low and high thresholds.
+The forecast pill sits in the right zone of the card and estimates where your glucose is likely to be in 30 minutes. It uses a **weighted linear regression** over the last 40 minutes of readings from the HA history API, giving more weight to the most recent data points. The result is clamped to a sensible range and colour-coded using your configured low and high thresholds.
 
 Tapping the pill opens a friendly popup with:
 
