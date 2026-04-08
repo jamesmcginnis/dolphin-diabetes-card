@@ -8,6 +8,10 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 
 ---
 
+![Dolphin Diabetes Card preview](https://raw.githubusercontent.com/jamesmcginnis/dolphin-diabetes-card/main/preview.png)
+
+---
+
 ## ✨ Features
 
 - **Three-zone layout** — designed for full-width dashboard panels; glucose ring on the left, trend arrow in the centre, forecast and sensor pills on the right, with a full-width history graph below
@@ -18,7 +22,7 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 - **Forecast popup** — tap the 30-min pill for a friendly, contextual message depending on whether your estimated glucose is low, high, or in range, along with a projected change from current
 - **Sensor life countdown** — optional pill showing days remaining on your current sensor, turns red on the last day
 - **Sensor unavailable state** — everything fades to grey when the sensor is offline or unavailable
-- **Tap for details** — single tap opens an elegant popup with a large reading, trend ring, time range selector (1h–24h), history graph, and live sensor attributes
+- **Tap for details** — single tap opens an elegant popup with a large reading, trend arrow, time range selector (1h–24h), history graph, and live sensor attributes
 - **Long press for more info** — opens the native Home Assistant entity detail screen
 - **Historical graph** — full-width colour-coded line segments, threshold guide lines, and gradient fill fetched directly from the HA history API
 - **Stale reading warning** — timestamp in the header turns amber when data is older than 15 minutes
@@ -133,7 +137,7 @@ text_color: "#ffffff"
 
 | Gesture | Action |
 |---|---|
-| **Tap** | Opens a detail popup with large reading, trend ring, selectable graph time range (1h–24h), and sensor attributes |
+| **Tap** | Opens a detail popup with large reading, trend arrow, selectable graph time range (1h–24h), and sensor attributes |
 | **Tap 30-min pill** | Opens a friendly forecast popup showing your estimated glucose in 30 minutes, projected change, and contextual guidance if trending low or high |
 | **Tap trend arrow** | Opens a trend history popup showing the last 50 trend readings with timestamps |
 | **Tap sensor pill** | Opens a sensor life popup with applied date, expiry date, time remaining, and a progress ring |
