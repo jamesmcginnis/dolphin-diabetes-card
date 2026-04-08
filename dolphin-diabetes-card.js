@@ -943,7 +943,7 @@ class DolphinDiabetesCard extends HTMLElement {
         .dg-centre-zone {
           flex: 1; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 4px;
-          cursor: pointer; padding: 0 16px;
+          cursor: pointer; padding: 0 16px; gap: 6px;
         }
         .dg-trend-arrow {
           font-size: 44px; line-height: 1; transition: color 0.4s;
@@ -1018,7 +1018,6 @@ class DolphinDiabetesCard extends HTMLElement {
             <div class="dg-centre-zone" id="dg-trend-row">
               <span class="dg-trend-arrow" id="dg-trend-arrow" style="color:rgba(255,255,255,0.25);">→</span>
               <div class="dg-trend-label" id="dg-trend-text" style="color:rgba(255,255,255,0.35);">--</div>
-              <div class="dg-trend-sublabel">Trend</div>
             </div>
 
             <div class="dg-divider"></div>
