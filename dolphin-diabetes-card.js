@@ -231,7 +231,7 @@ class DolphinDiabetesCard extends HTMLElement {
       return `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:12px;">Not enough data</div>`;
     }
     const W = 400, H = popupMode ? 160 : 110;
-    const pad = { top: 6, right: 8, bottom: 20, left: 8 };
+    const pad = { top: 6, right: 8, bottom: 20, left: 30 };
     const plotW = W - pad.left - pad.right;
     const plotH = H - pad.top - pad.bottom;
     const lo = this._lo(), hi = this._hi();
@@ -249,6 +249,13 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const clampY = v => Math.max(pad.top, Math.min(pad.top + plotH, pad.top + plotH - ((v - min) / range) * plotH));
     const loYc = clampY(lo), hiYc = clampY(hi);
+
+    // Y-axis labels for the threshold lines
+    const loLabel = this._config.unit === 'mgdl' ? Math.round(lo).toString() : lo.toFixed(1);
+    const hiLabel = this._config.unit === 'mgdl' ? Math.round(hi).toString() : hi.toFixed(1);
+    const yLabels = `
+      <text x="${pad.left - 3}" y="${(loYc + 3).toFixed(1)}" fill="${this._config.low_color}" font-size="7" text-anchor="end" opacity="0.7">${loLabel}</text>
+      <text x="${pad.left - 3}" y="${(hiYc + 3).toFixed(1)}" fill="${this._config.high_color}" font-size="7" text-anchor="end" opacity="0.7">${hiLabel}</text>`;
 
     let xLabels = '';
     if (timestamps && timestamps.length >= 2) {
@@ -268,6 +275,13 @@ class DolphinDiabetesCard extends HTMLElement {
       segments += `<line x1="${xs[i-1].toFixed(1)}" y1="${ys[i-1].toFixed(1)}" x2="${xs[i].toFixed(1)}" y2="${ys[i].toFixed(1)}" stroke="${c}" stroke-width="${popupMode ? 2.5 : 2}" stroke-linecap="round"/>`;
     }
 
+    // Current value label shown next to the last data point dot
+    const currentVal = glucoseValues[glucoseValues.length - 1];
+    const currentLabel = this._config.unit === 'mgdl' ? Math.round(currentVal).toString() : currentVal.toFixed(1);
+    const valLabelX = lastX + (popupMode ? 9 : 7);
+    const valLabelY = Math.max(pad.top + 7, Math.min(pad.top + plotH - 2, lastY + 3));
+    const valueDotLabel = `<text x="${valLabelX.toFixed(1)}" y="${valLabelY.toFixed(1)}" fill="${dotColor}" font-size="${popupMode ? 9 : 8}" font-weight="700" text-anchor="start" opacity="0.9">${currentLabel}</text>`;
+
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;display:block;">
       <defs>
         <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
@@ -278,9 +292,11 @@ class DolphinDiabetesCard extends HTMLElement {
       </defs>
       <line x1="${pad.left}" y1="${loYc.toFixed(1)}" x2="${W-pad.right}" y2="${loYc.toFixed(1)}" stroke="${this._config.low_color}" stroke-width="1" stroke-dasharray="4 3" opacity="0.45"/>
       <line x1="${pad.left}" y1="${hiYc.toFixed(1)}" x2="${W-pad.right}" y2="${hiYc.toFixed(1)}" stroke="${this._config.high_color}" stroke-width="1" stroke-dasharray="4 3" opacity="0.45"/>
+      ${yLabels}
       <path d="${fillPath}" fill="url(#${gradId})" clip-path="url(#${clipId})"/>
       <g clip-path="url(#${clipId})">${segments}</g>
       <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="${popupMode ? 5 : 3.5}" fill="${dotColor}" stroke="rgba(0,0,0,0.5)" stroke-width="1.5"/>
+      ${valueDotLabel}
       ${xLabels}
     </svg>`;
   }
@@ -953,8 +969,8 @@ class DolphinDiabetesCard extends HTMLElement {
       <ha-card id="dg-card">
         <div class="dg-inner">
 
-          <div class="dg-header" style="display:${cfg.show_title !== false ? 'flex' : 'none'}">
-            <span class="dg-title">${cfg.title || 'Blood Sugar'}</span>
+          <div class="dg-header">
+            <span class="dg-title" style="display:${cfg.show_title !== false ? '' : 'none'}">${cfg.title || 'Blood Sugar'}</span>
             <span class="dg-time" id="dg-time-ago">--</span>
           </div>
 
