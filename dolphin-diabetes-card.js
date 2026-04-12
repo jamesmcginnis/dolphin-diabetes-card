@@ -805,11 +805,17 @@ class DolphinDiabetesCard extends HTMLElement {
   async _loadGraphInto(container, popupMode, hours) {
     if (!this._config.glucose_entity) return;
     const h = hours || this._config.graph_hours || 3;
+
+    // Generation counter — discard responses that arrive after a newer request started
+    if (!container._loadGen) container._loadGen = 0;
+    const gen = ++container._loadGen;
+
     try {
       const end = new Date(), start = new Date(end - h * 3600000);
       const resp = await this._hass.callApi('GET',
         `history/period/${start.toISOString()}?filter_entity_id=${this._config.glucose_entity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
       );
+      if (container._loadGen !== gen) return; // a newer request is in flight — ignore this result
       if (resp?.[0]?.length > 0) {
         const data   = resp[0].filter(s => !isNaN(parseFloat(s.state)));
         const values = data.map(s => parseFloat(s.state));
@@ -819,6 +825,7 @@ class DolphinDiabetesCard extends HTMLElement {
         container.innerHTML = this._buildGraph([], [], popupMode);
       }
     } catch {
+      if (container._loadGen !== gen) return; // stale — ignore
       const cv = parseFloat(this._hass?.states[this._config.glucose_entity]?.state);
       container.innerHTML = !isNaN(cv)
         ? this._buildGraph(Array.from({length:20}, () => cv + (Math.random()-0.5)*0.5), null, popupMode)
