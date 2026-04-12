@@ -347,7 +347,7 @@ class DolphinDiabetesCard extends HTMLElement {
       @keyframes dgSlideUp { from{transform:translateY(18px) scale(0.97);opacity:0} to{transform:none;opacity:1} }
       .dg-popup { animation: dgSlideUp 0.26s cubic-bezier(0.34,1.3,0.64,1); }
       #dg-popup-overlay { animation: dgFadeIn 0.2s ease; }
-      .dg-seg-btn { flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:rgba(255,255,255,0.55);border:none;background:none;transition:all 0.2s;font-family:inherit; }
+      .dg-seg-btn { flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:rgba(255,255,255,0.55);border:none;background:none;transition:all 0.2s;font-family:inherit;touch-action:manipulation; }
       .dg-seg-btn.active { background:${cfg.accent_color};color:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.35); }
       .dg-close-btn:hover { background:rgba(255,255,255,0.22)!important; }
       .dg-info-row { display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.07); }
@@ -398,12 +398,15 @@ class DolphinDiabetesCard extends HTMLElement {
       btn.className = 'dg-seg-btn' + (h === this._popupHours ? ' active' : '');
       btn.textContent = `${h}h`;
       btn.dataset.hours = h;
-      btn.addEventListener('click', () => {
+      const switchHours = (e) => {
+        if (e.type === 'touchend') e.preventDefault(); // prevent ghost click after touchend
         this._popupHours = h;
         segWrap.querySelectorAll('.dg-seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.hours) === h));
         graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
         this._loadGraphInto(graphInner, true, h);
-      });
+      };
+      btn.addEventListener('click', switchHours);
+      btn.addEventListener('touchend', switchHours);
       segWrap.appendChild(btn);
     });
 
