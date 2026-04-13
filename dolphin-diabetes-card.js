@@ -894,8 +894,8 @@ class DolphinDiabetesCard extends HTMLElement {
       line.setAttribute('stroke-dasharray', '4 3');
 
       // Pill dimensions — taller if we have a time row
-      const lblW  = hasTime ? 52 : (this._config.unit === 'mgdl' ? 40 : 48);
-      const lblH  = hasTime ? 34 : 20;
+      const lblW  = hasTime ? 68 : (this._config.unit === 'mgdl' ? 52 : 62);
+      const lblH  = hasTime ? 46 : 28;
       const lblX  = Math.max(pad.left + lblW / 2, Math.min(W - pad.right - lblW / 2, cx));
       const lblY  = pad.top + 1;
 
@@ -904,16 +904,16 @@ class DolphinDiabetesCard extends HTMLElement {
       bgRect.setAttribute('y',      lblY.toFixed(1));
       bgRect.setAttribute('width',  lblW.toString());
       bgRect.setAttribute('height', lblH.toString());
-      bgRect.setAttribute('rx',     '5');
+      bgRect.setAttribute('rx',     '6');
       bgRect.setAttribute('fill',   'rgba(0,0,0,0.80)');
       bgRect.setAttribute('stroke', color);
       bgRect.setAttribute('stroke-width', '1.5');
 
       const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       valText.setAttribute('x',           lblX.toFixed(1));
-      valText.setAttribute('y',           (lblY + (hasTime ? 13 : 14)).toFixed(1));
+      valText.setAttribute('y',           (lblY + (hasTime ? 17 : 19)).toFixed(1));
       valText.setAttribute('fill',        color);
-      valText.setAttribute('font-size',   '14');
+      valText.setAttribute('font-size',   '19');
       valText.setAttribute('font-weight', '700');
       valText.setAttribute('text-anchor', 'middle');
       valText.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
@@ -926,9 +926,9 @@ class DolphinDiabetesCard extends HTMLElement {
       if (hasTime) {
         const timeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         timeText.setAttribute('x',           lblX.toFixed(1));
-        timeText.setAttribute('y',           (lblY + 28).toFixed(1));
+        timeText.setAttribute('y',           (lblY + 38).toFixed(1));
         timeText.setAttribute('fill',        'rgba(255,255,255,0.65)');
-        timeText.setAttribute('font-size',   '10');
+        timeText.setAttribute('font-size',   '13');
         timeText.setAttribute('font-weight', '500');
         timeText.setAttribute('text-anchor', 'middle');
         timeText.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
