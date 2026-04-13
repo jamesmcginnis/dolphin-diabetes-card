@@ -821,7 +821,7 @@ class DolphinDiabetesCard extends HTMLElement {
         container.innerHTML = values.length >= 2 ? this._buildGraph(values, times, popupMode) : this._buildGraph([], [], popupMode);
         if (popupMode && values.length >= 2) {
           const svg = container.querySelector('svg');
-          if (svg) this._attachGraphCrosshair(svg, values);
+          if (svg) this._attachGraphCrosshair(svg, values, times);
         }
       } else {
         container.innerHTML = this._buildGraph([], [], popupMode);
@@ -837,7 +837,7 @@ class DolphinDiabetesCard extends HTMLElement {
 
   // ── Graph crosshair (popup tap interaction) ───────────────────────
 
-  _attachGraphCrosshair(svg, values) {
+  _attachGraphCrosshair(svg, values, times) {
     const W    = 400, H = 160;
     const pad  = { top: 6, right: 8, bottom: 20, left: 30 };
     const plotW = W - pad.left - pad.right;
@@ -851,6 +851,12 @@ class DolphinDiabetesCard extends HTMLElement {
     const range  = max - min;
 
     let crosshairGroup = null;
+
+    const fmtTime = ts => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    };
 
     const clientXtoSvgX = clientX => {
       const rect   = svg.getBoundingClientRect();
@@ -869,6 +875,11 @@ class DolphinDiabetesCard extends HTMLElement {
       const label    = this._config.unit === 'mgdl' ? Math.round(val).toString() : val.toFixed(1);
       const color    = this._getStatusColor(val);
 
+      // Snap to nearest real data point for the timestamp
+      const snapIdx  = frac < 0.5 ? lIdx : rIdx;
+      const timeStr  = times ? fmtTime(times[snapIdx]) : '';
+      const hasTime  = timeStr.length > 0;
+
       if (crosshairGroup) crosshairGroup.remove();
       crosshairGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
@@ -882,11 +893,11 @@ class DolphinDiabetesCard extends HTMLElement {
       line.setAttribute('stroke-width', '1.5');
       line.setAttribute('stroke-dasharray', '4 3');
 
-      // Keep label within SVG bounds
-      const lblX       = Math.max(pad.left + 18, Math.min(W - pad.right - 18, cx));
-      const lblW       = this._config.unit === 'mgdl' ? 30 : 36;
-      const lblH       = 15;
-      const lblY       = pad.top + 1;
+      // Pill dimensions — taller if we have a time row
+      const lblW  = hasTime ? 38 : (this._config.unit === 'mgdl' ? 30 : 36);
+      const lblH  = hasTime ? 24 : 15;
+      const lblX  = Math.max(pad.left + lblW / 2, Math.min(W - pad.right - lblW / 2, cx));
+      const lblY  = pad.top + 1;
 
       const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       bgRect.setAttribute('x',      (lblX - lblW / 2).toFixed(1));
@@ -898,19 +909,33 @@ class DolphinDiabetesCard extends HTMLElement {
       bgRect.setAttribute('stroke', color);
       bgRect.setAttribute('stroke-width', '1');
 
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x',           lblX.toFixed(1));
-      text.setAttribute('y',           (lblY + 10.5).toFixed(1));
-      text.setAttribute('fill',        color);
-      text.setAttribute('font-size',   '9.5');
-      text.setAttribute('font-weight', '700');
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
-      text.textContent = label;
+      const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      valText.setAttribute('x',           lblX.toFixed(1));
+      valText.setAttribute('y',           (lblY + (hasTime ? 9 : 10.5)).toFixed(1));
+      valText.setAttribute('fill',        color);
+      valText.setAttribute('font-size',   '9.5');
+      valText.setAttribute('font-weight', '700');
+      valText.setAttribute('text-anchor', 'middle');
+      valText.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
+      valText.textContent = label;
 
       crosshairGroup.appendChild(line);
       crosshairGroup.appendChild(bgRect);
-      crosshairGroup.appendChild(text);
+      crosshairGroup.appendChild(valText);
+
+      if (hasTime) {
+        const timeText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        timeText.setAttribute('x',           lblX.toFixed(1));
+        timeText.setAttribute('y',           (lblY + 20).toFixed(1));
+        timeText.setAttribute('fill',        'rgba(255,255,255,0.55)');
+        timeText.setAttribute('font-size',   '7.5');
+        timeText.setAttribute('font-weight', '500');
+        timeText.setAttribute('text-anchor', 'middle');
+        timeText.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
+        timeText.textContent = timeStr;
+        crosshairGroup.appendChild(timeText);
+      }
+
       svg.appendChild(crosshairGroup);
     };
 
