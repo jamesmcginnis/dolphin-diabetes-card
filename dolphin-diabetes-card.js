@@ -9,8 +9,6 @@ class DolphinDiabetesCard extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._updateInterval = null;
     this._historyFetching = false;
-    this._longPressTimer = null;
-    this._longPressFired = false;
     this._popupOverlay = null;
     this._popupHours = 3;
     this._predictionCache = null;      // { value, timestamp }
@@ -821,6 +819,10 @@ class DolphinDiabetesCard extends HTMLElement {
         const values = data.map(s => parseFloat(s.state));
         const times  = data.map(s => s.last_changed || s.last_updated);
         container.innerHTML = values.length >= 2 ? this._buildGraph(values, times, popupMode) : this._buildGraph([], [], popupMode);
+        if (popupMode && values.length >= 2) {
+          const svg = container.querySelector('svg');
+          if (svg) this._attachGraphCrosshair(svg, values);
+        }
       } else {
         container.innerHTML = this._buildGraph([], [], popupMode);
       }
@@ -831,6 +833,115 @@ class DolphinDiabetesCard extends HTMLElement {
         ? this._buildGraph(Array.from({length:20}, () => cv + (Math.random()-0.5)*0.5), null, popupMode)
         : this._buildGraph([], [], popupMode);
     }
+  }
+
+  // ── Graph crosshair (popup tap interaction) ───────────────────────
+
+  _attachGraphCrosshair(svg, values) {
+    const W    = 400, H = 160;
+    const pad  = { top: 6, right: 8, bottom: 20, left: 30 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top  - pad.bottom;
+
+    const lo = this._lo(), hi = this._hi();
+    const rawMin = Math.min(...values), rawMax = Math.max(...values);
+    const vpad   = (rawMax - rawMin) * 0.15 || 1;
+    const min    = Math.min(rawMin - vpad, lo * 0.85);
+    const max    = Math.max(rawMax + vpad, hi * 1.1);
+    const range  = max - min;
+
+    let crosshairGroup = null;
+
+    const clientXtoSvgX = clientX => {
+      const rect   = svg.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      return (clientX - rect.left) * scaleX;
+    };
+
+    const showCrosshair = svgX => {
+      const cx       = Math.max(pad.left, Math.min(W - pad.right, svgX));
+      const xRatio   = (cx - pad.left) / plotW;
+      const exactIdx = xRatio * (values.length - 1);
+      const lIdx     = Math.floor(exactIdx);
+      const rIdx     = Math.min(lIdx + 1, values.length - 1);
+      const frac     = exactIdx - lIdx;
+      const val      = values[lIdx] + (values[rIdx] - values[lIdx]) * frac;
+      const label    = this._config.unit === 'mgdl' ? Math.round(val).toString() : val.toFixed(1);
+      const color    = this._getStatusColor(val);
+
+      if (crosshairGroup) crosshairGroup.remove();
+      crosshairGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+      // Dotted vertical line
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', cx.toFixed(1));
+      line.setAttribute('y1', pad.top.toString());
+      line.setAttribute('x2', cx.toFixed(1));
+      line.setAttribute('y2', (pad.top + plotH).toString());
+      line.setAttribute('stroke', 'rgba(255,255,255,0.75)');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke-dasharray', '4 3');
+
+      // Keep label within SVG bounds
+      const lblX       = Math.max(pad.left + 18, Math.min(W - pad.right - 18, cx));
+      const lblW       = this._config.unit === 'mgdl' ? 30 : 36;
+      const lblH       = 15;
+      const lblY       = pad.top + 1;
+
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('x',      (lblX - lblW / 2).toFixed(1));
+      bgRect.setAttribute('y',      lblY.toFixed(1));
+      bgRect.setAttribute('width',  lblW.toString());
+      bgRect.setAttribute('height', lblH.toString());
+      bgRect.setAttribute('rx',     '4');
+      bgRect.setAttribute('fill',   'rgba(0,0,0,0.72)');
+      bgRect.setAttribute('stroke', color);
+      bgRect.setAttribute('stroke-width', '1');
+
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x',           lblX.toFixed(1));
+      text.setAttribute('y',           (lblY + 10.5).toFixed(1));
+      text.setAttribute('fill',        color);
+      text.setAttribute('font-size',   '9.5');
+      text.setAttribute('font-weight', '700');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('font-family', "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif");
+      text.textContent = label;
+
+      crosshairGroup.appendChild(line);
+      crosshairGroup.appendChild(bgRect);
+      crosshairGroup.appendChild(text);
+      svg.appendChild(crosshairGroup);
+    };
+
+    const clearCrosshair = () => {
+      if (crosshairGroup) { crosshairGroup.remove(); crosshairGroup = null; }
+    };
+
+    svg.style.cursor = 'crosshair';
+
+    svg.addEventListener('click', e => {
+      e.stopPropagation();
+      const svgX = clientXtoSvgX(e.clientX);
+      if (svgX < pad.left || svgX > W - pad.right) {
+        clearCrosshair();
+      } else {
+        showCrosshair(svgX);
+      }
+    });
+
+    svg.addEventListener('touchend', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.changedTouches.length > 0) {
+        const svgX = clientXtoSvgX(e.changedTouches[0].clientX);
+        if (svgX < pad.left || svgX > W - pad.right) {
+          clearCrosshair();
+        } else {
+          showCrosshair(svgX);
+        }
+      }
+    }, { passive: false });
   }
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -1045,47 +1156,22 @@ class DolphinDiabetesCard extends HTMLElement {
   _setupInteractions() {
     const card = this.shadowRoot.getElementById('dg-card');
     if (!card) return;
-    const start  = () => { this._longPressFired = false; this._longPressTimer = setTimeout(() => { this._longPressFired = true; this._fireMoreInfo(); }, 600); };
-    const cancel = () => clearTimeout(this._longPressTimer);
-    card.addEventListener('mousedown',   start);
-    card.addEventListener('touchstart',  start, { passive: true });
-    card.addEventListener('mouseup',     cancel);
-    card.addEventListener('mouseleave',  cancel);
-    card.addEventListener('touchend',    cancel);
-    card.addEventListener('touchcancel', cancel);
-    card.addEventListener('click', () => { if (!this._longPressFired) this._openPopup(); });
+
+    card.addEventListener('click', () => this._openPopup());
 
     const trendBlock = this.shadowRoot.getElementById('dg-trend-row');
     if (trendBlock) {
-      trendBlock.addEventListener('click', e => {
-        e.stopPropagation();
-        clearTimeout(this._longPressTimer);
-        if (!this._longPressFired) this._openTrendPopup();
-      });
-      trendBlock.addEventListener('mousedown', e => e.stopPropagation());
-      trendBlock.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+      trendBlock.addEventListener('click', e => { e.stopPropagation(); this._openTrendPopup(); });
     }
 
     const pillEl = this.shadowRoot.getElementById('dg-sensor-pill');
     if (pillEl) {
-      pillEl.addEventListener('click', e => {
-        e.stopPropagation();
-        clearTimeout(this._longPressTimer);
-        if (!this._longPressFired) this._openSensorPopup();
-      });
-      pillEl.addEventListener('mousedown', e => e.stopPropagation());
-      pillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+      pillEl.addEventListener('click', e => { e.stopPropagation(); this._openSensorPopup(); });
     }
 
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
     if (predictPillEl) {
-      predictPillEl.addEventListener('click', e => {
-        e.stopPropagation();
-        clearTimeout(this._longPressTimer);
-        if (!this._longPressFired) this._openPredictionPopup();
-      });
-      predictPillEl.addEventListener('mousedown',  e => e.stopPropagation());
-      predictPillEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+      predictPillEl.addEventListener('click', e => { e.stopPropagation(); this._openPredictionPopup(); });
     }
   }
 
