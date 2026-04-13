@@ -26,17 +26,17 @@ The card uses a three-zone layout designed for full-width dashboard panels:
 
 Thin dividers separate each zone, and a full-width history graph runs across the bottom of the card.
 
-## Tap and long press
+## Tap interactions
 
 A single tap opens a detail popup with a large reading, trend arrow, a 1h/3h/6h/12h/24h time range selector for the graph, and any available sensor attributes such as delta, battery, and transmitter ID.
+
+Inside the popup, **tap anywhere on the graph** to show a dotted vertical line at that position with the interpolated glucose reading displayed near the top. Tap a different spot to move the crosshair, or tap outside the graph area to clear it.
 
 Tapping the **30-min pill** opens a forecast popup with your estimated glucose, projected change, and a short friendly message if things are heading low or high — without offering medical advice.
 
 Tapping the **trend arrow** opens a trend history popup showing the last 50 readings with timestamps.
 
 Tapping the **sensor pill** opens a sensor life popup with applied date, expiry, time remaining, and a progress ring.
-
-A long press opens the native Home Assistant entity detail screen.
 
 ## 30-Minute Forecast
 
