@@ -945,28 +945,64 @@ class DolphinDiabetesCard extends HTMLElement {
 
     svg.style.cursor = 'crosshair';
 
-    svg.addEventListener('click', e => {
+    let isDragging = false;
+
+    // ── Touch (iOS/Android) ──
+    svg.addEventListener('touchstart', e => {
       e.stopPropagation();
-      const svgX = clientXtoSvgX(e.clientX);
-      if (svgX < pad.left || svgX > W - pad.right) {
-        clearCrosshair();
-      } else {
-        showCrosshair(svgX);
-      }
-    });
+      e.preventDefault();
+      const svgX = clientXtoSvgX(e.touches[0].clientX);
+      if (svgX < pad.left || svgX > W - pad.right) return;
+      isDragging = true;
+      showCrosshair(svgX);
+    }, { passive: false });
+
+    svg.addEventListener('touchmove', e => {
+      if (!isDragging) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const svgX = clientXtoSvgX(e.touches[0].clientX);
+      if (svgX >= pad.left && svgX <= W - pad.right) showCrosshair(svgX);
+    }, { passive: false });
 
     svg.addEventListener('touchend', e => {
       e.stopPropagation();
-      e.preventDefault();
-      if (e.changedTouches.length > 0) {
-        const svgX = clientXtoSvgX(e.changedTouches[0].clientX);
-        if (svgX < pad.left || svgX > W - pad.right) {
-          clearCrosshair();
-        } else {
-          showCrosshair(svgX);
-        }
-      }
+      isDragging = false;
     }, { passive: false });
+
+    svg.addEventListener('touchcancel', () => { isDragging = false; });
+
+    // ── Mouse (desktop) ──
+    svg.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const svgX = clientXtoSvgX(e.clientX);
+      if (svgX < pad.left || svgX > W - pad.right) return;
+      isDragging = true;
+      showCrosshair(svgX);
+    });
+
+    svg.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const svgX = clientXtoSvgX(e.clientX);
+      if (svgX >= pad.left && svgX <= W - pad.right) showCrosshair(svgX);
+    });
+
+    svg.addEventListener('mouseup', e => {
+      e.stopPropagation();
+      if (!isDragging) return;
+      isDragging = false;
+      const svgX = clientXtoSvgX(e.clientX);
+      if (svgX < pad.left || svgX > W - pad.right) clearCrosshair();
+    });
+
+    svg.addEventListener('mouseleave', () => { isDragging = false; });
+
+    // Tap outside graph area to clear
+    svg.addEventListener('click', e => {
+      e.stopPropagation();
+      const svgX = clientXtoSvgX(e.clientX);
+      if (svgX < pad.left || svgX > W - pad.right) clearCrosshair();
+    });
   }
 
   // ── Render ─────────────────────────────────────────────────────────
