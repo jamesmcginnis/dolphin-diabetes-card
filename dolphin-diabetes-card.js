@@ -115,8 +115,9 @@ class DolphinDiabetesCard extends HTMLElement {
     const totalHoursLeft = msLeft / 3600000;
     const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
     const hoursLeft      = Math.max(0, Math.floor(totalHoursLeft % 24));
+    const minutesLeft    = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
     const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
-    return { start, end, duration, daysLeft, totalHoursLeft, hoursLeft, hoursOverdue, pct };
+    return { start, end, duration, daysLeft, totalHoursLeft, hoursLeft, minutesLeft, hoursOverdue, pct };
   }
 
   _formatGlucose(val) {
@@ -690,7 +691,7 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const status = this._getSensorStatus();
     if (!status) return;
-    const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, hoursLeft, totalHoursLeft, pct } = status;
+    const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, hoursLeft, minutesLeft, totalHoursLeft, pct } = status;
 
     const normalColor = cfg.sensor_pill_normal_color || '#34C759';
     const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
@@ -757,9 +758,9 @@ class DolphinDiabetesCard extends HTMLElement {
     if (isExpired) {
       rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}` });
     } else if (daysLeft === 0) {
-      rows.push({ label: 'Time remaining', value: `${hoursLeft}h` });
+      rows.push({ label: 'Time remaining', value: `${hoursLeft}h ${minutesLeft}m` });
     } else if (daysLeft !== null) {
-      rows.push({ label: 'Time remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h` });
+      rows.push({ label: 'Time remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h ${minutesLeft}m` });
     }
     rows.forEach(({ label, value }) => {
       const row = document.createElement('div');
