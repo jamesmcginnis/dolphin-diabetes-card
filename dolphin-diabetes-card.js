@@ -114,8 +114,9 @@ class DolphinDiabetesCard extends HTMLElement {
     const daysLeft       = Math.max(0, Math.floor(msLeft / 86400000));
     const totalHoursLeft = msLeft / 3600000;
     const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
+    const hoursLeft      = Math.max(0, Math.floor(totalHoursLeft % 24));
     const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
-    return { start, end, duration, daysLeft, totalHoursLeft, hoursOverdue, pct };
+    return { start, end, duration, daysLeft, totalHoursLeft, hoursLeft, hoursOverdue, pct };
   }
 
   _formatGlucose(val) {
@@ -689,7 +690,7 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const status = this._getSensorStatus();
     if (!status) return;
-    const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, totalHoursLeft, pct } = status;
+    const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, hoursLeft, totalHoursLeft, pct } = status;
 
     const normalColor = cfg.sensor_pill_normal_color || '#34C759';
     const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
@@ -702,7 +703,6 @@ class DolphinDiabetesCard extends HTMLElement {
     const fmtTime     = d => `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     const fmtDateTime = d => `${fmtDate(d)} at ${fmtTime(d)}`;
 
-    const hoursLeft = Math.max(0, Math.floor(totalHoursLeft % 24));
 
     let statusText, statusSub, statusBadge;
     if (daysLeft === null)   { statusText = '?';                      statusSub = 'Unknown';                 statusBadge = 'Unknown'; }
@@ -1404,7 +1404,7 @@ class DolphinDiabetesCard extends HTMLElement {
         let valTxt, lblTxt;
         if (daysLeft === null)  { valTxt = '?';                         lblTxt = 'days left'; }
         else if (isExpired)     { valTxt = `${hoursOverdue}h`;          lblTxt = 'overdue'; }
-        else if (daysLeft === 0){ valTxt = `${Math.floor(status.totalHoursLeft)}h`; lblTxt = 'remaining'; }
+        else if (daysLeft === 0){ valTxt = `${status.hoursLeft}h`; lblTxt = 'remaining'; }
         else                    { valTxt = `${daysLeft}`;               lblTxt = 'days left'; }
         sensorPillEl.style.display     = 'flex';
         sensorPillEl.style.background  = bg;
