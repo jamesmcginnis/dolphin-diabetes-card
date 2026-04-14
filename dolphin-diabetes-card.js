@@ -693,8 +693,8 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const normalColor = cfg.sensor_pill_normal_color || '#34C759';
     const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
-    const isExpired   = daysLeft !== null && daysLeft <= 0;
-    const isUrgent    = daysLeft !== null && daysLeft <= 1;
+    const isExpired   = hoursOverdue > 0;
+    const isUrgent    = !isExpired && daysLeft !== null && daysLeft <= 1;
     const pillColor   = isUrgent ? urgentColor : normalColor;
     const circ        = 2 * Math.PI * 34;
 
@@ -1397,8 +1397,8 @@ class DolphinDiabetesCard extends HTMLElement {
         const hoursOverdue = status?.hoursOverdue ?? 0;
         const normalColor  = this._config.sensor_pill_normal_color || '#34C759';
         const urgentColor  = this._config.sensor_pill_urgent_color || '#FF3B30';
-        const isExpired    = daysLeft !== null && daysLeft <= 0;
-        const isUrgent     = daysLeft !== null && daysLeft <= 1;
+        const isExpired    = hoursOverdue > 0;
+        const isUrgent     = !isExpired && daysLeft !== null && daysLeft <= 1;
         const pillCol      = isUrgent ? urgentColor : normalColor;
         const bg           = this._config.sensor_pill_bg || '#2c2c2e';
         let valTxt, lblTxt;
