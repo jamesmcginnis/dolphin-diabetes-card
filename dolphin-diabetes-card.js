@@ -1404,7 +1404,7 @@ class DolphinDiabetesCard extends HTMLElement {
         let valTxt, lblTxt;
         if (daysLeft === null)  { valTxt = '?';                         lblTxt = 'days left'; }
         else if (isExpired)     { valTxt = `${hoursOverdue}h`;          lblTxt = 'overdue'; }
-        else if (daysLeft === 0){ valTxt = `${Math.ceil(status.totalHoursLeft)}h`; lblTxt = 'remaining'; }
+        else if (daysLeft === 0){ valTxt = `${Math.floor(status.totalHoursLeft)}h`; lblTxt = 'remaining'; }
         else                    { valTxt = `${daysLeft}`;               lblTxt = 'days left'; }
         sensorPillEl.style.display     = 'flex';
         sensorPillEl.style.background  = bg;
