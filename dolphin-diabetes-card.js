@@ -111,7 +111,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const duration       = parseInt(sensor_duration_days) || 14;
     const end            = new Date(start.getTime() + duration * 86400000);
     const msLeft         = end - Date.now();
-    const daysLeft       = Math.max(0, Math.ceil(msLeft / 86400000));
+    const daysLeft       = Math.max(0, Math.floor(msLeft / 86400000));
     const totalHoursLeft = msLeft / 3600000;
     const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
     const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
@@ -705,10 +705,11 @@ class DolphinDiabetesCard extends HTMLElement {
     const hoursLeft = Math.max(0, Math.floor(totalHoursLeft % 24));
 
     let statusText, statusSub, statusBadge;
-    if (daysLeft === null)   { statusText = '?';                     statusSub = 'Unknown';                statusBadge = 'Unknown'; }
-    else if (isExpired)      { statusText = `${hoursOverdue}h over`; statusSub = 'Replace sensor';         statusBadge = 'Expired'; }
-    else if (daysLeft === 1) { statusText = '1 day';                 statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
-    else                     { statusText = `${daysLeft} days`;      statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
+    if (daysLeft === null)   { statusText = '?';                      statusSub = 'Unknown';                 statusBadge = 'Unknown'; }
+    else if (isExpired)      { statusText = `${hoursOverdue}h over`;  statusSub = 'Replace sensor';          statusBadge = 'Expired'; }
+    else if (daysLeft === 0) { statusText = `${hoursLeft}h`;          statusSub = 'Less than a day left';    statusBadge = 'Replace Soon'; }
+    else if (daysLeft === 1) { statusText = '1 day';                  statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
+    else                     { statusText = `${daysLeft} days`;       statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
 
     const { popup } = this._makePopupShell('Sensor Life');
 
@@ -733,8 +734,11 @@ class DolphinDiabetesCard extends HTMLElement {
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
           ${isExpired
             ? `<span style="font-size:11px;font-weight:700;color:${pillColor};line-height:1;text-align:center;padding:4px;">${hoursOverdue}h<br><span style="font-size:7px;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">over</span></span>`
-            : `<span style="font-size:15px;font-weight:700;color:${pillColor};line-height:1;">${daysLeft ?? '?'}</span>
-               <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">days</span>`
+            : daysLeft === 0
+              ? `<span style="font-size:13px;font-weight:700;color:${pillColor};line-height:1;">${hoursLeft}h</span>
+                 <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">left</span>`
+              : `<span style="font-size:15px;font-weight:700;color:${pillColor};line-height:1;">${daysLeft ?? '?'}</span>
+                 <span style="font-size:8px;font-weight:600;color:${pillColor};opacity:0.7;margin-top:2px;text-transform:uppercase;letter-spacing:0.04em;">days</span>`
           }
         </div>
       </div>`;
@@ -752,6 +756,8 @@ class DolphinDiabetesCard extends HTMLElement {
     ];
     if (isExpired) {
       rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}` });
+    } else if (daysLeft === 0) {
+      rows.push({ label: 'Time remaining', value: `${hoursLeft}h` });
     } else if (daysLeft !== null) {
       rows.push({ label: 'Time remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h` });
     }
@@ -1285,7 +1291,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const card = this.shadowRoot.getElementById('dg-card');
     if (!card) return;
 
-    card.addEventListener('click', () => this._openPopup());
+    card.addEventListener('click', () => this._openGraphPopup());
 
     const trendBlock = this.shadowRoot.getElementById('dg-trend-row');
     if (trendBlock) {
@@ -1304,7 +1310,7 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const graphInnerEl = this.shadowRoot.getElementById('dg-graph-inner');
     if (graphInnerEl) {
-      graphInnerEl.addEventListener('click', e => { e.stopPropagation(); this._openGraphPopup(); });
+      graphInnerEl.addEventListener('click', e => { e.stopPropagation(); this._openPopup(); });
     }
   }
 
@@ -1396,9 +1402,10 @@ class DolphinDiabetesCard extends HTMLElement {
         const pillCol      = isUrgent ? urgentColor : normalColor;
         const bg           = this._config.sensor_pill_bg || '#2c2c2e';
         let valTxt, lblTxt;
-        if (daysLeft === null)  { valTxt = '?';                lblTxt = 'days left'; }
-        else if (isExpired)     { valTxt = `${hoursOverdue}h`; lblTxt = 'overdue'; }
-        else                    { valTxt = `${daysLeft}`;      lblTxt = 'days left'; }
+        if (daysLeft === null)  { valTxt = '?';                         lblTxt = 'days left'; }
+        else if (isExpired)     { valTxt = `${hoursOverdue}h`;          lblTxt = 'overdue'; }
+        else if (daysLeft === 0){ valTxt = `${Math.ceil(status.totalHoursLeft)}h`; lblTxt = 'remaining'; }
+        else                    { valTxt = `${daysLeft}`;               lblTxt = 'days left'; }
         sensorPillEl.style.display     = 'flex';
         sensorPillEl.style.background  = bg;
         sensorPillEl.style.borderColor = pillCol + '55';
