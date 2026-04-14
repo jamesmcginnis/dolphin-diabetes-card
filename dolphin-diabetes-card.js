@@ -523,49 +523,69 @@ class DolphinDiabetesCard extends HTMLElement {
 
   // ── Graph History Popup ────────────────────────────────────────────
 
-  _openGraphPopup() {
+  async _openGraphPopup() {
     if (!this._config.glucose_entity) return;
 
-    const cfg          = this._config;
-    const { popup }    = this._makePopupShell('Glucose History');
-    let currentHours   = parseInt(cfg.graph_hours) || 3;
+    const cfg         = this._config;
+    const statusColor = this._getStatusColor(this._hass?.states[cfg.glucose_entity]?.state);
+    const { popup }   = this._makePopupShell('Glucose History');
 
-    // Extra styles for segmented control buttons
-    const style = document.createElement('style');
-    style.textContent = `
-      .dg-seg-btn { flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:rgba(255,255,255,0.55);border:none;background:none;transition:all 0.2s;font-family:inherit;touch-action:manipulation; }
-      .dg-seg-btn.active { background:${cfg.accent_color};color:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.35); }
-    `;
-    popup.appendChild(style);
+    const histLabel = document.createElement('div');
+    histLabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px;';
+    histLabel.textContent = 'Recent Readings';
+    popup.appendChild(histLabel);
 
-    // Time selector
-    const segWrap = document.createElement('div');
-    segWrap.style.cssText = 'display:flex;background:rgba(118,118,128,0.2);border-radius:10px;padding:3px;gap:2px;margin-bottom:12px;';
+    const histWrap = document.createElement('div');
+    histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+    popup.appendChild(histWrap);
 
-    const graphInner = document.createElement('div');
-    graphInner.style.cssText = 'height:160px;position:relative;margin-bottom:14px;';
-    graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+    try {
+      const end   = new Date(), start = new Date(end - 24 * 3600000);
+      const resp  = await this._hass.callApi('GET',
+        `history/period/${start.toISOString()}?filter_entity_id=${cfg.glucose_entity}&end_time=${end.toISOString()}&minimal_response=false&no_attributes=true`
+      );
+      const data  = resp?.[0] || [];
+      const valid = data.filter(s => !isNaN(parseFloat(s.state)));
 
-    [1, 3, 6, 12, 24].forEach(h => {
-      const btn = document.createElement('button');
-      btn.className = 'dg-seg-btn' + (h === currentHours ? ' active' : '');
-      btn.textContent = `${h}h`;
-      btn.dataset.hours = h;
-      const switchHours = e => {
-        if (e.type === 'touchend') e.preventDefault();
-        currentHours = h;
-        segWrap.querySelectorAll('.dg-seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.hours) === h));
-        graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
-        this._loadGraphInto(graphInner, true, h);
-      };
-      btn.addEventListener('click', switchHours);
-      btn.addEventListener('touchend', switchHours);
-      segWrap.appendChild(btn);
-    });
+      if (valid.length === 0) {
+        histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">No history available</div>`;
+      } else {
+        const rows = [...valid].reverse().slice(0, 50);
+        const fmtTime = ts => {
+          const d   = new Date(ts);
+          const now = new Date();
+          const isToday     = d.toDateString() === now.toDateString();
+          const yesterday   = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+          const isYesterday = d.toDateString() === yesterday.toDateString();
+          const time = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+          if (isToday)     return `Today, ${time}`;
+          if (isYesterday) return `Yesterday, ${time}`;
+          return `${d.toLocaleDateString('en-GB', { day:'numeric', month:'short' })}, ${time}`;
+        };
 
-    popup.appendChild(segWrap);
-    popup.appendChild(graphInner);
-    this._loadGraphInto(graphInner, true, currentHours);
+        histWrap.innerHTML = '';
+        rows.forEach((entry, idx) => {
+          const ts    = entry.last_changed || entry.last_updated;
+          const val   = parseFloat(entry.state);
+          const color = idx === 0 ? statusColor : this._getStatusColor(val);
+          const bgCol = idx === 0 ? `${statusColor}18` : 'rgba(255,255,255,0.06)';
+          const label = this._formatGlucose(val);
+          const status = this._getStatusLabel(val);
+          const row   = document.createElement('div');
+          row.className = 'dg-trend-hist-row';
+          row.innerHTML = `
+            <span class="dg-trend-hist-time">${fmtTime(ts)}</span>
+            <span class="dg-trend-hist-badge" style="background:${bgCol};color:${color};border:1px solid ${idx===0?statusColor+'44':'rgba(255,255,255,0.1)'};">
+              <span style="font-size:15px;font-weight:700;letter-spacing:-0.5px;">${label}</span>
+              <span style="font-size:10px;opacity:0.75;">${this._unitLabel()}</span>
+              <span style="font-size:10px;opacity:0.65;margin-left:2px;">${status}</span>
+            </span>`;
+          histWrap.appendChild(row);
+        });
+      }
+    } catch {
+      histWrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:rgba(255,255,255,0.25);font-size:12px;">Could not load history</div>`;
+    }
   }
 
   // ── Trend History Popup ────────────────────────────────────────────
@@ -1188,11 +1208,6 @@ class DolphinDiabetesCard extends HTMLElement {
           text-transform: uppercase; margin-top: 3px; opacity: 0.65;
         }
 
-        .dg-sensor-row {
-          display: none;
-          justify-content: center;
-          margin-top: 12px;
-        }
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
           margin-top: 14px;
@@ -1243,16 +1258,12 @@ class DolphinDiabetesCard extends HTMLElement {
                 <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
                 <span class="dg-sub-pill-label">30 min</span>
               </div>
+              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
+              </div>
             </div>
 
-          </div>
-
-          <!-- SENSOR LIFE ROW — centred below main row -->
-          <div class="dg-sensor-row" id="dg-sensor-row">
-            <div class="dg-sub-pill" id="dg-sensor-pill">
-              <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
-              <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
-            </div>
           </div>
 
           <div class="dg-graph-wrap" id="dg-graph-wrap">
@@ -1368,9 +1379,8 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
-    // ── Sensor pill (centred row below main content) ─────────────────
+    // ── Sensor pill (centre, right pill) ────────────────────────────
     const sensorPillEl  = root.getElementById('dg-sensor-pill');
-    const sensorRowEl   = root.getElementById('dg-sensor-row');
     const sensorValEl   = root.getElementById('dg-sensor-value');
     const sensorLblEl   = root.getElementById('dg-sensor-label');
     if (sensorPillEl) {
@@ -1392,12 +1402,10 @@ class DolphinDiabetesCard extends HTMLElement {
         sensorPillEl.style.display     = 'flex';
         sensorPillEl.style.background  = bg;
         sensorPillEl.style.borderColor = pillCol + '55';
-        if (sensorRowEl) sensorRowEl.style.display = 'flex';
         if (sensorValEl) { sensorValEl.textContent = valTxt; sensorValEl.style.color = pillCol; }
         if (sensorLblEl) { sensorLblEl.textContent = lblTxt; sensorLblEl.style.color = pillCol; }
       } else {
         sensorPillEl.style.display = 'none';
-        if (sensorRowEl) sensorRowEl.style.display = 'none';
       }
     }
 
