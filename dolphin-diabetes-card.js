@@ -111,7 +111,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const duration       = parseInt(sensor_duration_days) || 14;
     const end            = new Date(start.getTime() + duration * 86400000);
     const msLeft         = end - Date.now();
-    const daysLeft       = Math.floor(msLeft / 86400000); // FIX: was Math.ceil — caused days to read 1 too high
+    const daysLeft       = Math.max(0, Math.ceil(msLeft / 86400000));
     const totalHoursLeft = msLeft / 3600000;
     const hoursOverdue   = msLeft < 0 ? Math.floor(-totalHoursLeft) : 0;
     const pct            = Math.max(0, Math.min(1, msLeft / (duration * 86400000)));
@@ -519,6 +519,53 @@ class DolphinDiabetesCard extends HTMLElement {
     this._popupOverlay = overlay;
 
     return { popup, overlay };
+  }
+
+  // ── Graph History Popup ────────────────────────────────────────────
+
+  _openGraphPopup() {
+    if (!this._config.glucose_entity) return;
+
+    const cfg          = this._config;
+    const { popup }    = this._makePopupShell('Glucose History');
+    let currentHours   = parseInt(cfg.graph_hours) || 3;
+
+    // Extra styles for segmented control buttons
+    const style = document.createElement('style');
+    style.textContent = `
+      .dg-seg-btn { flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:rgba(255,255,255,0.55);border:none;background:none;transition:all 0.2s;font-family:inherit;touch-action:manipulation; }
+      .dg-seg-btn.active { background:${cfg.accent_color};color:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.35); }
+    `;
+    popup.appendChild(style);
+
+    // Time selector
+    const segWrap = document.createElement('div');
+    segWrap.style.cssText = 'display:flex;background:rgba(118,118,128,0.2);border-radius:10px;padding:3px;gap:2px;margin-bottom:12px;';
+
+    const graphInner = document.createElement('div');
+    graphInner.style.cssText = 'height:160px;position:relative;margin-bottom:14px;';
+    graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+
+    [1, 3, 6, 12, 24].forEach(h => {
+      const btn = document.createElement('button');
+      btn.className = 'dg-seg-btn' + (h === currentHours ? ' active' : '');
+      btn.textContent = `${h}h`;
+      btn.dataset.hours = h;
+      const switchHours = e => {
+        if (e.type === 'touchend') e.preventDefault();
+        currentHours = h;
+        segWrap.querySelectorAll('.dg-seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.hours) === h));
+        graphInner.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.25);font-size:12px;">Loading…</div>`;
+        this._loadGraphInto(graphInner, true, h);
+      };
+      btn.addEventListener('click', switchHours);
+      btn.addEventListener('touchend', switchHours);
+      segWrap.appendChild(btn);
+    });
+
+    popup.appendChild(segWrap);
+    popup.appendChild(graphInner);
+    this._loadGraphInto(graphInner, true, currentHours);
   }
 
   // ── Trend History Popup ────────────────────────────────────────────
@@ -1141,11 +1188,16 @@ class DolphinDiabetesCard extends HTMLElement {
           text-transform: uppercase; margin-top: 3px; opacity: 0.65;
         }
 
+        .dg-sensor-row {
+          display: none;
+          justify-content: center;
+          margin-top: 12px;
+        }
         .dg-graph-wrap {
           display: ${cfg.show_graph ? 'block' : 'none'};
           margin-top: 14px;
         }
-        .dg-graph-inner { height: 90px; position: relative; overflow: visible; }
+        .dg-graph-inner { height: 90px; position: relative; overflow: visible; cursor: pointer; }
       </style>
 
       <ha-card id="dg-card">
@@ -1191,12 +1243,16 @@ class DolphinDiabetesCard extends HTMLElement {
                 <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
                 <span class="dg-sub-pill-label">30 min</span>
               </div>
-              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
-                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
-                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
-              </div>
             </div>
 
+          </div>
+
+          <!-- SENSOR LIFE ROW — centred below main row -->
+          <div class="dg-sensor-row" id="dg-sensor-row">
+            <div class="dg-sub-pill" id="dg-sensor-pill">
+              <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+              <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
+            </div>
           </div>
 
           <div class="dg-graph-wrap" id="dg-graph-wrap">
@@ -1233,6 +1289,11 @@ class DolphinDiabetesCard extends HTMLElement {
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
     if (predictPillEl) {
       predictPillEl.addEventListener('click', e => { e.stopPropagation(); this._openPredictionPopup(); });
+    }
+
+    const graphInnerEl = this.shadowRoot.getElementById('dg-graph-inner');
+    if (graphInnerEl) {
+      graphInnerEl.addEventListener('click', e => { e.stopPropagation(); this._openGraphPopup(); });
     }
   }
 
@@ -1307,8 +1368,9 @@ class DolphinDiabetesCard extends HTMLElement {
       timeEl.style.color = mins > 15 ? this._config.high_color : 'rgba(255,255,255,0.38)';
     }
 
-    // ── Sensor pill (centre, right pill) ────────────────────────────
+    // ── Sensor pill (centred row below main content) ─────────────────
     const sensorPillEl  = root.getElementById('dg-sensor-pill');
+    const sensorRowEl   = root.getElementById('dg-sensor-row');
     const sensorValEl   = root.getElementById('dg-sensor-value');
     const sensorLblEl   = root.getElementById('dg-sensor-label');
     if (sensorPillEl) {
@@ -1330,10 +1392,12 @@ class DolphinDiabetesCard extends HTMLElement {
         sensorPillEl.style.display     = 'flex';
         sensorPillEl.style.background  = bg;
         sensorPillEl.style.borderColor = pillCol + '55';
+        if (sensorRowEl) sensorRowEl.style.display = 'flex';
         if (sensorValEl) { sensorValEl.textContent = valTxt; sensorValEl.style.color = pillCol; }
         if (sensorLblEl) { sensorLblEl.textContent = lblTxt; sensorLblEl.style.color = pillCol; }
       } else {
         sensorPillEl.style.display = 'none';
+        if (sensorRowEl) sensorRowEl.style.display = 'none';
       }
     }
 
