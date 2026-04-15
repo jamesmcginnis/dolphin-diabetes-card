@@ -45,7 +45,8 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_bg: '#2c2c2e',
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
-      sensor_pill_urgent_color: '#FF3B30',
+      sensor_pill_urgent_color: '#FF9500',
+      sensor_pill_expired_color: '#FF3B30',
     };
   }
 
@@ -73,7 +74,8 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_bg: '#2c2c2e',
       sensor_pill_text: '#ffffff',
       sensor_pill_normal_color: '#34C759',
-      sensor_pill_urgent_color: '#FF3B30',
+      sensor_pill_urgent_color: '#FF9500',
+      sensor_pill_expired_color: '#FF3B30',
       ...config
     };
     if (this.shadowRoot.innerHTML) this._render();
@@ -693,11 +695,12 @@ class DolphinDiabetesCard extends HTMLElement {
     if (!status) return;
     const { start: startDate, end: endDate, duration, daysLeft, hoursOverdue, hoursLeft, minutesLeft, totalHoursLeft, pct } = status;
 
-    const normalColor = cfg.sensor_pill_normal_color || '#34C759';
-    const urgentColor = cfg.sensor_pill_urgent_color || '#FF3B30';
-    const isExpired   = hoursOverdue > 0;
-    const isUrgent    = !isExpired && daysLeft !== null && daysLeft <= 1;
-    const pillColor   = isUrgent ? urgentColor : normalColor;
+    const normalColor  = cfg.sensor_pill_normal_color  || '#34C759';
+    const urgentColor  = cfg.sensor_pill_urgent_color  || '#FF9500';
+    const expiredColor = cfg.sensor_pill_expired_color || '#FF3B30';
+    const isExpired    = hoursOverdue > 0;
+    const isUrgent     = !isExpired && daysLeft !== null && daysLeft <= 1;
+    const pillColor    = isExpired ? expiredColor : isUrgent ? urgentColor : normalColor;
     const circ        = 2 * Math.PI * 34;
 
     const fmtDate     = d => d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -756,16 +759,17 @@ class DolphinDiabetesCard extends HTMLElement {
       { label: 'Duration', value: `${duration} days`     },
     ];
     if (isExpired) {
-      rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}` });
+      rows.push({ label: 'Overdue by', value: `${hoursOverdue} hour${hoursOverdue !== 1 ? 's' : ''}`, valueColor: pillColor });
     } else if (daysLeft === 0) {
       rows.push({ label: 'Time remaining', value: `${hoursLeft}h ${minutesLeft}m` });
     } else if (daysLeft !== null) {
       rows.push({ label: 'Time remaining', value: `${daysLeft} day${daysLeft !== 1 ? 's' : ''}, ${hoursLeft}h ${minutesLeft}m` });
     }
-    rows.forEach(({ label, value }) => {
+    rows.forEach(({ label, value, valueColor }) => {
       const row = document.createElement('div');
       row.className = 'dg-info-row';
-      row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value">${value}</span>`;
+      const colorStyle = valueColor ? ` style="color:${valueColor};font-weight:700;"` : '';
+      row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value"${colorStyle}>${value}</span>`;
       infoWrap.appendChild(row);
     });
     popup.appendChild(infoWrap);
@@ -1396,11 +1400,12 @@ class DolphinDiabetesCard extends HTMLElement {
         const status       = this._getSensorStatus();
         const daysLeft     = status?.daysLeft ?? null;
         const hoursOverdue = status?.hoursOverdue ?? 0;
-        const normalColor  = this._config.sensor_pill_normal_color || '#34C759';
-        const urgentColor  = this._config.sensor_pill_urgent_color || '#FF3B30';
+        const normalColor  = this._config.sensor_pill_normal_color  || '#34C759';
+        const urgentColor  = this._config.sensor_pill_urgent_color  || '#FF9500';
+        const expiredColor = this._config.sensor_pill_expired_color || '#FF3B30';
         const isExpired    = hoursOverdue > 0;
         const isUrgent     = !isExpired && daysLeft !== null && daysLeft <= 1;
-        const pillCol      = isUrgent ? urgentColor : normalColor;
+        const pillCol      = isExpired ? expiredColor : isUrgent ? urgentColor : normalColor;
         const bg           = this._config.sensor_pill_bg || '#2c2c2e';
         let valTxt, lblTxt;
         if (daysLeft === null)  { valTxt = '?';                         lblTxt = 'days left'; }
@@ -1554,9 +1559,10 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       { key: 'high_color',               label: 'High Alert',          desc: 'Colour when glucose is high',                                                  default: '#FF9500', maxlen: 7 },
       { key: 'graph_line_color',         label: 'Graph Line',          desc: 'Graph line colour',                                                            default: '#007AFF', maxlen: 7 },
       { key: 'graph_fill_color',         label: 'Graph Fill',          desc: 'Graph area fill colour',                                                       default: '#007AFF', maxlen: 7 },
-      { key: 'sensor_pill_bg',           label: 'Sensor Pill BG',      desc: 'Sensor life pill background',                                                  default: '#2c2c2e', maxlen: 9 },
-      { key: 'sensor_pill_normal_color', label: 'Sensor — Normal',     desc: 'Pill text colour when days remain',                                            default: '#34C759', maxlen: 7 },
-      { key: 'sensor_pill_urgent_color', label: 'Sensor — Last Day',   desc: 'Pill text colour when 1 day or less left',                                     default: '#FF3B30', maxlen: 7 },
+      { key: 'sensor_pill_bg',            label: 'Sensor Pill BG',      desc: 'Sensor life pill background',                                                  default: '#2c2c2e', maxlen: 9 },
+      { key: 'sensor_pill_normal_color',  label: 'Sensor — Active',     desc: 'Pill colour when sensor has days remaining',                                   default: '#34C759', maxlen: 7 },
+      { key: 'sensor_pill_urgent_color',  label: 'Sensor — Last Day',   desc: 'Pill colour when 1 day or less remaining',                                     default: '#FF9500', maxlen: 7 },
+      { key: 'sensor_pill_expired_color', label: 'Sensor — Expired',    desc: 'Pill & popup colour when sensor life has expired (overdue)',                   default: '#FF3B30', maxlen: 7 },
       { key: 'card_bg',                  label: 'Card Background',     desc: '#00000000 = transparent glass. 8-digit hex for custom opacity — e.g. #1c1c1e80', default: '#1c1c1e', maxlen: 9 },
       { key: 'text_color',               label: 'Text Colour',         desc: 'Primary text colour',                                                          default: '#ffffff', maxlen: 7 },
     ];
