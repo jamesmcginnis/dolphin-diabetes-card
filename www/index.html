@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dolphin Diabetes">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>Dolphin Diabetes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:#0d0d0d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+body{min-height:100dvh;overflow-x:hidden;}
+
+/* ── Page ── */
+#page{max-width:480px;margin:0 auto;
+  padding:env(safe-area-inset-top,14px) 14px env(safe-area-inset-bottom,16px);
+  display:flex;flex-direction:column;gap:12px;min-height:100dvh;}
+
+/* ── Top bar ── */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0;flex-shrink:0;}
+#topbar-title{font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.38);}
+#topbar-right{display:flex;gap:8px;align-items:center;}
+.tb-btn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.6);transition:background .15s,transform .1s;user-select:none;-webkit-user-select:none;}
+.tb-btn:active{transform:scale(.9);}
+#conn-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);transition:background .4s;flex-shrink:0;}
+#conn-dot.ok{background:#30d158;}
+#conn-dot.connecting{background:#ff9f0a;animation:blink 1.2s infinite;}
+#conn-dot.polling{background:#ff9f0a;}
+#conn-dot.err{background:#ff453a;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Card ── */
+.dg-card{border-radius:20px;border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 6px 24px rgba(0,0,0,.45);overflow:hidden;cursor:pointer;
+  user-select:none;-webkit-user-select:none;transition:transform .15s,opacity .15s;}
+.dg-card:active{transform:scale(.995);opacity:.92;}
+.dg-card-inner{padding:18px 18px 14px;}
+
+/* header row */
+.dg-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.dg-title-lbl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.38);}
+#dg-time-ago{font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;transition:color .4s;}
+
+/* 3-zone row */
+.dg-main-row{display:flex;align-items:center;justify-content:space-between;}
+.dg-divider{width:1px;align-self:stretch;background:rgba(255,255,255,.08);margin:4px 0;flex-shrink:0;}
+
+/* LEFT zone */
+.dg-left-zone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.dg-ring-block{position:relative;width:120px;height:120px;flex-shrink:0;}
+.dg-ring-block svg{position:absolute;top:0;left:0;}
+.dg-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.dg-glucose-num{font-size:36px;font-weight:700;letter-spacing:-2px;line-height:1;transition:color .4s;}
+.dg-unit-lbl{font-size:9px;font-weight:600;color:rgba(255,255,255,.4);margin-top:3px;}
+.dg-status-badge{margin-top:9px;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;transition:background .4s,color .4s,border-color .4s;}
+
+/* CENTRE zone */
+.dg-centre-zone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0 10px;cursor:pointer;min-height:90px;}
+.dg-trend-arrow{font-size:46px;line-height:1;transition:color .4s;}
+.dg-trend-label{font-size:12px;font-weight:600;text-align:center;transition:color .4s;line-height:1.3;}
+
+/* RIGHT zone */
+.dg-right-zone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 10px;}
+.dg-sub-pill{display:flex;flex-direction:column;align-items:center;padding:9px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);cursor:pointer;transition:background .4s,border-color .4s;min-width:72px;}
+.dg-sub-pill-value{font-size:22px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums;}
+.dg-sub-pill-label{font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:3px;opacity:.65;}
+
+/* graph strip */
+.dg-graph-wrap{margin-top:14px;cursor:pointer;}
+.dg-graph-inner{height:96px;position:relative;overflow:visible;}
+.dg-graph-inner svg{display:block;overflow:visible;}
+
+/* ── Recent readings card ── */
+#readings-card{border-radius:20px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);overflow:hidden;}
+#readings-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+#readings-header span{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.38);}
+#readings-header small{font-size:11px;color:rgba(255,255,255,.25);}
+#readings-list{max-height:340px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#readings-list::-webkit-scrollbar{width:3px;}
+#readings-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px;}
+.r-row{display:flex;align-items:center;padding:9px 16px;border-top:1px solid rgba(255,255,255,.05);gap:0;cursor:pointer;transition:background .15s;}
+.r-row:active{background:rgba(255,255,255,.05);}
+.r-time{font-size:12px;color:rgba(255,255,255,.38);font-variant-numeric:tabular-nums;width:52px;flex-shrink:0;}
+.r-val{font-size:16px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;width:48px;flex-shrink:0;text-align:right;}
+.r-badge{font-size:10px;font-weight:700;padding:2px 0;border-radius:20px;text-align:center;white-space:nowrap;width:76px;flex-shrink:0;}
+
+/* ── Stats bar ── */
+#stats-bar{display:flex;gap:10px;}
+.stat-cell{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 10px;text-align:center;cursor:pointer;transition:background .15s,transform .1s;user-select:none;-webkit-user-select:none;}
+.stat-cell:active{background:rgba(255,255,255,.09);transform:scale(.97);}
+.stat-val{font-size:22px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums;}
+.stat-lbl{font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-top:4px;}
+
+/* ── Footer ── */
+#footer{display:flex;justify-content:space-between;padding:0 2px;flex-shrink:0;margin-top:auto;}
+#footer span{font-size:11px;color:rgba(255,255,255,.2);}
+/* toast */
+#toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);left:50%;
+  transform:translateX(-50%) translateY(10px);background:#2c2c2e;
+  border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 20px;
+  font-size:14px;font-weight:600;color:#fff;opacity:0;transition:opacity .25s,transform .25s;
+  z-index:99999;pointer-events:none;white-space:nowrap;max-width:88vw;text-align:center;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.err{border-color:rgba(255,69,58,.5);background:#2d1212;color:#ff6b6b;}
+#toast.ok {border-color:rgba(48,209,88,.4);background:#0d2214;color:#30d158;}
+
+/* ══════════ POPUP ══════════ */
+#popup-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;
+  padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+#popup-overlay.open{display:flex;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.dg-popup{width:100%;max-width:400px;max-height:88dvh;overflow-y:auto;border-radius:24px;
+  border:1px solid rgba(255,255,255,.15);box-shadow:0 24px 64px rgba(0,0,0,.65);padding:20px;
+  animation:slideUp .26s cubic-bezier(.34,1.3,.64,1);}
+@keyframes slideUp{from{transform:translateY(18px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.popup-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.popup-title{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);}
+.popup-close{background:rgba(255,255,255,.1);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.65);font-size:15px;line-height:1;
+  padding:0;transition:background .15s;flex-shrink:0;}
+.popup-close:hover{background:rgba(255,255,255,.22);}
+.popup-seg{display:flex;background:rgba(118,118,128,.2);border-radius:10px;padding:3px;gap:2px;margin-bottom:12px;}
+.seg-btn{flex:1;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;border-radius:7px;
+  cursor:pointer;color:rgba(255,255,255,.55);border:none;background:none;transition:all .2s;
+  font-family:inherit;touch-action:manipulation;}
+.seg-btn.active{color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35);}
+.popup-graph-wrap{height:130px;position:relative;overflow:visible;cursor:crosshair;margin-bottom:14px;}
+.popup-graph-wrap svg{display:block;overflow:visible;}
+.info-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);}
+.info-row:last-child{border-bottom:none;}
+.info-label{font-size:12px;color:rgba(255,255,255,.45);font-weight:500;}
+.info-value{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);text-align:right;}
+.hist-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);}
+.hist-row:last-child{border-bottom:none;}
+.hist-time{font-size:12px;color:rgba(255,255,255,.42);font-weight:500;font-variant-numeric:tabular-nums;min-width:110px;flex-shrink:0;}
+.hist-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+
+/* ══════════ SETTINGS ══════════ */
+#settings-overlay{position:fixed;inset:0;z-index:9998;display:none;align-items:flex-end;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+#settings-overlay.open{display:flex;animation:fadeIn .2s ease;}
+#settings-sheet{width:100%;max-width:480px;margin:0 auto;background:#1c1c1e;border-radius:24px 24px 0 0;
+  border:1px solid rgba(255,255,255,.13);border-bottom:none;max-height:92dvh;overflow-y:auto;
+  animation:slideUp .3s cubic-bezier(.34,1.2,.64,1);padding-bottom:env(safe-area-inset-bottom,20px);}
+.sheet-handle{width:36px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin:12px auto 0;}
+.sheet-title-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 6px;}
+.sheet-title{font-size:18px;font-weight:700;letter-spacing:-.3px;}
+.s-section{padding:0 16px 16px;}
+.s-sec-hdr{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);padding:14px 4px 6px;display:flex;align-items:center;gap:5px;}
+.s-group{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:13px;overflow:hidden;}
+.s-row{display:flex;align-items:center;padding:11px 14px;gap:12px;border-bottom:1px solid rgba(255,255,255,.06);}
+.s-row:last-child{border-bottom:none;}
+.s-lbl{flex:1;font-size:14px;color:#fff;}
+.s-lbl small{display:block;font-size:10px;color:rgba(255,255,255,.3);margin-top:1px;line-height:1.4;}
+.s-input{flex:1.6;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:7px 10px;font-size:12px;font-family:ui-monospace,monospace;color:#fff;outline:none;min-width:0;
+  transition:border-color .15s;}
+.s-input:focus{border-color:#007aff;}
+.s-input::placeholder{color:rgba(255,255,255,.25);}
+
+/* ── TOGGLE — iOS UISwitch 51×31 ── */
+.tog{position:relative;width:51px;height:31px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-track{position:absolute;inset:0;border-radius:15.5px;background:rgba(255,255,255,.14);cursor:pointer;transition:background .25s;}
+.tog input:checked+.tog-track{background:#30d158;}
+.tog-track::after{content:'';position:absolute;width:27px;height:27px;border-radius:13.5px;
+  top:2px;left:2px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);
+  transition:transform .25s cubic-bezier(.34,1.4,.64,1);}
+.tog input:checked+.tog-track::after{transform:translateX(20px);}
+
+/* slider */
+.slider-row{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);}
+.slider-row:last-child{border-bottom:none;}
+.slider-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.slider-label{display:flex;align-items:center;gap:6px;font-size:13px;color:#fff;}
+.s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.slider-val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;font-family:ui-monospace,monospace;}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:rgba(255,255,255,.14);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;}
+
+/* seg picker */
+.seg-pick{display:flex;background:rgba(255,255,255,.07);border-radius:9px;padding:2px;}
+.sp-btn{flex:1;padding:6px 4px;border-radius:7px;border:none;background:transparent;
+  color:rgba(255,255,255,.45);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;text-align:center;}
+.sp-btn.active{background:#2c2c2e;color:#fff;border:1px solid rgba(255,255,255,.12);}
+
+/* color swatch */
+
+/* save button */
+.save-btn{width:calc(100% - 32px);margin:8px 16px 0;padding:14px;border-radius:13px;border:none;
+  background:#007aff;color:#fff;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .15s,transform .1s;}
+.save-btn:active{transform:scale(.98);opacity:.9;}
+
+/* setup card */
+#setup-card{border-radius:20px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
+  padding:48px 24px;text-align:center;display:none;flex-direction:column;align-items:center;gap:14px;flex:1;}
+#setup-card.show{display:flex;}
+
+
+</style>
+</head>
+<body>
+<div id="page">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <span id="topbar-title">Blood Sugar</span>
+    <div id="topbar-right">
+      <div id="conn-dot" title="Connection"></div>
+      <div class="tb-btn" id="refresh-btn" onclick="manualRefresh()" title="Refresh">↻</div>
+      <div class="tb-btn" onclick="openSettings()" title="Settings">⚙</div>
+    </div>
+  </div>
+
+  <!-- Setup prompt -->
+  <div id="setup-card" class="show">
+    <div style="font-size:60px">🐬</div>
+    <div style="font-size:22px;font-weight:700;">Dolphin Diabetes</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.5);line-height:1.6;max-width:280px;">Enter your Home Assistant URL, access token, and glucose entity to get started.</div>
+    <div onclick="openSettings()" style="margin-top:4px;padding:13px 32px;border-radius:13px;background:#007aff;color:#fff;font-size:16px;font-weight:600;cursor:pointer;">Open Settings</div>
+    <div onclick="resetAll()" style="margin-top:8px;font-size:12px;color:rgba(255,255,255,.3);cursor:pointer;text-decoration:underline;">Clear saved data</div>
+  </div>
+
+  <!-- Main glucose card -->
+  <div id="main-card" class="dg-card" style="display:none;" onclick="openGraphPopup()">
+    <div class="dg-card-inner">
+      <div class="dg-header">
+        <span class="dg-title-lbl" id="card-title">Blood Sugar</span>
+        <span id="dg-time-ago" style="color:rgba(255,255,255,.38)">--</span>
+      </div>
+      <div class="dg-main-row">
+        <!-- LEFT: ring -->
+        <div class="dg-left-zone">
+          <div class="dg-ring-block">
+            <svg viewBox="0 0 88 88" width="120" height="120">
+              <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5.5"/>
+              <circle id="dg-ring-arc" cx="44" cy="44" r="34" fill="none" stroke="#007aff" stroke-width="5.5" stroke-linecap="round"
+                style="stroke-dasharray:213.6;stroke-dashoffset:106.8;transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dashoffset .7s ease,stroke .4s ease;"/>
+            </svg>
+            <div class="dg-ring-center">
+              <span class="dg-glucose-num" id="dg-glucose-num" style="color:#007aff;"><span id="dg-glucose">--</span></span>
+              <span class="dg-unit-lbl" id="dg-unit">mmol/L</span>
+            </div>
+          </div>
+          <div class="dg-status-badge" id="dg-status-badge" style="background:#007aff22;color:#007aff;border:1px solid #007aff44;">--</div>
+        </div>
+        <div class="dg-divider"></div>
+        <!-- CENTRE: trend -->
+        <div class="dg-centre-zone" id="dg-trend-zone" onclick="event.stopPropagation();openTrendPopup()">
+          <span class="dg-trend-arrow" id="dg-trend-arrow" style="color:rgba(255,255,255,.3);">→</span>
+          <div class="dg-trend-label" id="dg-trend-text" style="color:rgba(255,255,255,.5);">Steady</div>
+        </div>
+        <div class="dg-divider"></div>
+        <!-- RIGHT: pills -->
+        <div class="dg-right-zone">
+          <div class="dg-sub-pill" id="dg-predict-pill" style="display:none;" onclick="event.stopPropagation();openPredictPopup()">
+            <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
+            <span class="dg-sub-pill-label">30 min</span>
+          </div>
+          <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;" onclick="event.stopPropagation();openSensorPopup()">
+            <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+            <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
+          </div>
+        </div>
+      </div>
+      <!-- Graph strip — click opens popup, no inline crosshair -->
+      <div class="dg-graph-wrap" id="dg-graph-wrap" style="display:none;" onclick="event.stopPropagation();openGraphPopup()">
+        <div class="dg-graph-inner" id="dg-graph-inner"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="stats-bar" style="display:none;">
+    <div class="stat-cell" onclick="openAvgPopup()">
+      <div class="stat-val" id="stat-avg">--</div>
+      <div class="stat-lbl">Avg (3h)</div>
+    </div>
+    <div class="stat-cell" onclick="openTirPopup()">
+      <div class="stat-val" id="stat-tir" style="color:#30d158">--%</div>
+      <div class="stat-lbl">Time in Range</div>
+    </div>
+    <div class="stat-cell" onclick="openReadingsCountPopup()">
+      <div class="stat-val" id="stat-readings">--</div>
+      <div class="stat-lbl">Readings</div>
+    </div>
+  </div>
+
+  <!-- Recent readings -->
+  <div id="readings-card" style="display:none;">
+    <div id="readings-header">
+      <span>Recent Readings</span>
+      <small id="readings-count"></small>
+    </div>
+    <div id="readings-list"></div>
+  </div>
+
+  <div id="footer">
+    <span id="last-updated">–</span>
+    <span>🐬 Dolphin Diabetes</span>
+  </div>
+</div>
+<div id="toast"></div>
+
+<!-- ══════════ POPUP ══════════ -->
+<div id="popup-overlay" onclick="if(event.target===this)closePopup()">
+  <div class="dg-popup" id="popup-box"
+    style="background:rgba(26,26,30,.96);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);">
+    <div class="popup-header">
+      <span class="popup-title" id="popup-title">Blood Sugar</span>
+      <button class="popup-close" onclick="closePopup()">✕</button>
+    </div>
+    <div id="popup-reading-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:6px;line-height:1;">
+          <span id="popup-val" style="font-size:54px;font-weight:700;letter-spacing:-3px;">--</span>
+          <span id="popup-unit" style="font-size:14px;color:rgba(255,255,255,.4);font-weight:500;padding-bottom:5px;">mmol/L</span>
+        </div>
+        <div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span id="popup-status-badge" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">--</span>
+          <span id="popup-time-ago" style="font-size:11px;color:rgba(255,255,255,.35);">--</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;margin-left:12px;display:flex;align-items:center;">
+        <span id="popup-trend-pill"></span>
+      </div>
+    </div>
+    <div class="popup-seg" id="popup-seg" style="display:none;"></div>
+    <div class="popup-graph-wrap" id="popup-graph-wrap" style="display:none;"></div>
+    <div id="popup-info-rows"></div>
+  </div>
+</div>
+
+<!-- ══════════ SETTINGS ══════════ -->
+<div id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+  <div id="settings-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title-row">
+      <div class="sheet-title">Settings</div>
+      <button class="popup-close" onclick="closeSettings()">✕</button>
+    </div>
+
+    <div class="s-section">
+      <div class="s-sec-hdr">🔌 Home Assistant Connection</div>
+      <div class="s-group">
+        <div class="s-row">
+          <div class="s-lbl">HA URL<small>e.g. http://homeassistant.local:8123</small></div>
+          <input class="s-input" id="s-url" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Access Token<small>Profile → Long-Lived Access Tokens</small></div>
+          <input class="s-input" id="s-token" type="password" placeholder="eyJ…" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+
+    <div class="s-section">
+      <div class="s-sec-hdr">📡 Entities</div>
+      <div class="s-group">
+        <div class="s-row">
+          <div class="s-lbl">Glucose Entity<small>e.g. sensor.dexcom_blood_glucose</small></div>
+          <input class="s-input" id="s-glucose" type="text" placeholder="sensor.dexcom_glucose" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Trend Entity<small>Optional — e.g. sensor.dexcom_trend</small></div>
+          <input class="s-input" id="s-trend" type="text" placeholder="sensor.dexcom_trend" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+
+    <div class="s-section">
+      <div class="s-sec-hdr">🎨 Display</div>
+      <div class="s-group">
+        <div class="s-row">
+          <div class="s-lbl">Unit</div>
+          <div class="seg-pick" id="sp-unit">
+            <button class="sp-btn active" data-v="mmol">mmol/L</button>
+            <button class="sp-btn" data-v="mgdl">mg/dL</button>
+          </div>
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Decimal Places<small>mmol/L display precision</small></div>
+          <div class="seg-pick" id="sp-dp">
+            <button class="sp-btn" data-v="0">0</button>
+            <button class="sp-btn active" data-v="1">1</button>
+            <button class="sp-btn" data-v="2">2</button>
+          </div>
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Default Graph Range</div>
+          <div class="seg-pick" id="sp-gh">
+            <button class="sp-btn" data-v="1">1h</button>
+            <button class="sp-btn active" data-v="3">3h</button>
+            <button class="sp-btn" data-v="6">6h</button>
+            <button class="sp-btn" data-v="12">12h</button>
+            <button class="sp-btn" data-v="24">24h</button>
+          </div>
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Show Graph</div>
+          <label class="tog"><input type="checkbox" id="s-show-graph" checked><span class="tog-track"></span></label>
+        </div>
+        <div class="s-row">
+          <div class="s-lbl">Card Title</div>
+          <input class="s-input" id="s-title" type="text" value="Blood Sugar" style="max-width:140px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="s-section">
+      <div class="s-sec-hdr">📊 Thresholds</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.3);padding:0 4px 8px;line-height:1.5;" id="thresh-note">Values in mmol/L — matching your unit setting above.</div>
+      <div class="s-group" id="threshold-group"></div>
+    </div>
+
+    <div class="s-section">
+      <div class="s-sec-hdr">📡 Sensor Life</div>
+      <div class="s-group">
+        <div class="s-row"><div class="s-lbl">Show Sensor Life</div>
+          <label class="tog"><input type="checkbox" id="s-show-sensor" onchange="toggleSensorRows(this.checked)"><span class="tog-track"></span></label></div>
+        <div class="s-row" id="sensor-start-row" style="display:none">
+          <div class="s-lbl">Sensor Started</div>
+          <input class="s-input" id="s-sensor-start" type="datetime-local" style="max-width:190px;"></div>
+        <div class="s-row" id="sensor-dur-row" style="display:none">
+          <div class="s-lbl">Duration (days)</div>
+          <input class="s-input" id="s-sensor-dur" type="number" min="7" max="30" value="10" style="max-width:70px;"></div>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveSettings()">Save &amp; Connect</button>
+    <div style="height:20px;"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════
+// CONFIG — thresholds stored in DISPLAY UNIT (same as HA entity)
+// ════════════════════════════════════════════════
+const DEFAULTS = {
+  haUrl:'', token:'', glucoseEntity:'', trendEntity:'',
+  unit:'mmol',          // 'mmol' or 'mgdl' — must match what HA entity reports
+  decimalPlaces:1,      // decimal places for mmol display
+  graphHours:3, showGraph:true, title:'Blood Sugar',
+  accentColor:'#007AFF', lowColor:'#FF3B30', highColor:'#FF9500',
+  normalColor:'#34C759', cardBg:'#1c1c1e', cardBgOpacity:80,
+  graphFillColor:'#007AFF',
+  lowThreshold:5.1, highThreshold:12.9,
+  showSensor:false, sensorStart:'', sensorDuration:10,
+  sensorPillBg:'#2c2c2e', sensorNormalColor:'#34C759',
+  sensorUrgentColor:'#FF9500', sensorExpiredColor:'#FF3B30',
+};
+
+let C = {...DEFAULTS};
+let readings = [];   // [{val, trend, ts, attrs}]  newest-first  val is in C.unit
+let trendTimeline = []; // [{ts, trend}] sorted ascending — populated from trend entity history
+let ws=null, wsRetry=null, pollTimer=null, historyTimer=null, timeAgoTimer=null;
+let predCache={val:null, ts:0};
+let predFetching=false;
+let toastTimer=null;
+
+// ════════════════════════════════════════════════
+// TOAST + RESET
+// ════════════════════════════════════════════════
+function showToast(msg, type, duration) {
+  duration = duration || 3000;
+  const el = document.getElementById('toast');
+  if (!el) { console.log('Toast:', msg); return; }
+  clearTimeout(toastTimer);
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' '+type : '');
+  toastTimer = setTimeout(() => { el.className = ''; }, duration);
+}
+
+function resetAll() {
+  if (!confirm('Clear all saved settings and cached readings?')) return;
+  localStorage.removeItem('dph_cfg');
+  localStorage.removeItem('dph_r');
+  location.reload();
+}
+
+// ════════════════════════════════════════════════
+// PERSIST
+// ════════════════════════════════════════════════
+function saveC(){ try{ localStorage.setItem('dph_cfg', JSON.stringify(C)); }catch(e){} }
+function loadC(){
+  try{ const s=localStorage.getItem('dph_cfg'); if(s) C={...DEFAULTS,...JSON.parse(s)}; }catch(e){}
+}
+function saveR(){ try{ localStorage.setItem('dph_r', JSON.stringify(readings.slice(0,288))); }catch(e){} }
+function loadR(){ try{ const s=localStorage.getItem('dph_r'); if(s) readings=JSON.parse(s); }catch(e){} }
+
+// ════════════════════════════════════════════════
+// HELPERS — NO unit conversion. val IS in C.unit already.
+// ════════════════════════════════════════════════
+const isMmol = () => C.unit === 'mmol';
+const CIRC   = 2 * Math.PI * 34;
+
+function fmtVal(v) {
+  const n = parseFloat(v); if (isNaN(n)) return '--';
+  return isMmol() ? n.toFixed(C.decimalPlaces ?? 1) : Math.round(n).toString();
+}
+function unitLabel() { return isMmol() ? 'mmol/L' : 'mg/dL'; }
+
+// Status — direct comparison, no conversion needed
+function statusColor(v) {
+  const n = parseFloat(v); if (isNaN(n)) return C.accentColor;
+  if (n < parseFloat(C.lowThreshold))  return C.lowColor;
+  if (n > parseFloat(C.highThreshold)) return C.highColor;
+  return C.normalColor;
+}
+function statusLabel(v) {
+  const n = parseFloat(v); if (isNaN(n)) return 'Unknown';
+  if (n < parseFloat(C.lowThreshold))  return 'Low';
+  if (n > parseFloat(C.highThreshold)) return 'High';
+  return 'In Range';
+}
+
+// TREND — exact port of _getTrendInfo, extended to handle both
+// underscore format (rising_slightly) and space format (Rising Slightly)
+function parseTrend(raw) {
+  if (!raw) return null;
+  const t = raw.toString().toLowerCase();
+  // Normalise spaces → underscores so "Rising Slightly" and "rising_slightly" both work
+  const n = t.replace(/[\s-]+/g, '_');
+  const mk = (deg, label) => ({ deg, label });
+
+  if ((t.includes('double') && t.includes('up'))       || t==='doubleup'    || n==='double_up')   return mk(0,   'Rising Fast');
+  if (n==='rising_quickly'  || n==='up_fast'            || t==='risingquickly')                    return mk(0,   'Rising Fast');
+  if ((t.includes('single') && t.includes('up'))        || t==='singleup'   || n==='single_up')   return mk(45,  'Rising');
+  if (n==='rising_slightly' || n==='up_slight'           || t==='risingslightly')                  return mk(67,  'Rising Slightly');
+  if ((t.includes('fortyfive') && t.includes('up'))     || t==='fortyfiveup'|| n==='forty_five_up')return mk(67,  'Rising Slightly');
+  if (t.includes('rising')                              || t==='up')                               return mk(45,  'Rising');
+  if (t.includes('flat')                                || t==='steady')                           return mk(90,  'Steady');
+  if ((t.includes('fortyfive') && t.includes('down'))   || t==='fortyfivedown'||n==='forty_five_down')return mk(113,'Falling Slightly');
+  if (n==='falling_slightly' || n==='down_slight'        || t==='fallingslightly')                 return mk(113, 'Falling Slightly');
+  if ((t.includes('single') && t.includes('down'))       || t==='singledown' || n==='single_down') return mk(135, 'Falling');
+  if (n==='falling_quickly'  || n==='down_fast'          || t==='fallingquickly')                  return mk(180, 'Falling Fast');
+  if ((t.includes('double') && t.includes('down'))       || t==='doubledown' || n==='double_down') return mk(180, 'Falling Fast');
+  if (t.includes('falling')                             || t==='down')                             return mk(135, 'Falling');
+  return null;
+}
+function trendArrowChar(deg) {
+  if (deg===0)   return '↑↑';
+  if (deg<=45)   return '↑';
+  if (deg<=67)   return '↗';
+  if (deg<=90)   return '→';
+  if (deg<=113)  return '↘';
+  if (deg<=135)  return '↓';
+  return '↓↓';
+}
+
+// Returns the most recent reading that has a non-null trend value
+function latestTrend() {
+  const r = readings.find(r => r.trend && r.trend !== 'unavailable' && r.trend !== 'unknown');
+  return r ? r.trend : null;
+}
+
+// TIME
+function fmtTimeAgo(ts) {
+  const m = Math.floor((Date.now()-ts)/60000);
+  return m<1?'Just now':m===1?'1 min ago':m<60?`${m} mins ago`:`${Math.floor(m/60)}h ago`;
+}
+function fmtHHMM(ts) {
+  const d=new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+function fmtDateTime(ts) {
+  const d=new Date(ts), now=new Date();
+  const yest=new Date(now); yest.setDate(yest.getDate()-1);
+  const t=fmtHHMM(ts);
+  if (d.toDateString()===now.toDateString()) return `Today, ${t}`;
+  if (d.toDateString()===yest.toDateString()) return `Yesterday, ${t}`;
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+`, ${t}`;
+}
+function fmtDateFull(ts) {
+  const d=new Date(ts);
+  return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' at '+fmtHHMM(ts);
+}
+
+function cardBgRgba() {
+  const h=C.cardBg||'#1c1c1e';
+  const r=parseInt(h.slice(1,3),16)||28, g=parseInt(h.slice(3,5),16)||28, b=parseInt(h.slice(5,7),16)||30;
+  return `rgba(${r},${g},${b},${(parseInt(C.cardBgOpacity)||80)/100})`;
+}
+
+// ════════════════════════════════════════════════
+// PREDICTION — fetches fresh 40-min data from HA, matching original JS _fetchPrediction exactly
+// Falls back to in-memory readings if HA is unavailable
+// ════════════════════════════════════════════════
+async function fetchPrediction() {
+  // 5-minute cache — exact match of original JS card (cacheAge < 300000)
+  if (predCache.val !== null && (Date.now() - predCache.ts) < 300000) return predCache.val;
+  // Fetching lock — prevents concurrent HA requests on rapid updateUI calls
+  if (predFetching) return predCache.val;
+  predFetching = true;
+  try {
+    if (!C.haUrl||!C.token||!C.glucoseEntity) {
+      const v = predFromMemory();
+      predCache = {val:v, ts:Date.now()};
+      return v;
+    }
+    const end   = new Date();
+    const start = new Date(end - 40*60000);
+    const res   = await haFetch(
+      `/api/history/period/${start.toISOString()}?filter_entity_id=${C.glucoseEntity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
+    );
+    const data  = await res.json();
+    const raw   = (data?.[0]||[]).filter(s=>!isNaN(parseFloat(s.state)));
+    if (raw.length < 2) { predCache={val:null,ts:Date.now()}; return null; }
+    const points = raw.map(s=>({
+      t: (new Date(s.last_changed||s.last_updated).getTime() - new Date(raw[0].last_changed||raw[0].last_updated).getTime()) / 60000,
+      v: parseFloat(s.state)
+    }));
+    const result = runRegression(points);
+    predCache = {val:result, ts:Date.now()};
+    return result;
+  } catch(e) {
+    const v = predFromMemory();
+    predCache = {val:v, ts:Date.now()};
+    return v;
+  } finally {
+    predFetching = false;
+  }
+}
+
+function predFromMemory() {
+  const cutoff = Date.now()-40*60000;
+  const recent = readings.filter(r=>r.ts>=cutoff).sort((a,b)=>a.ts-b.ts);
+  if (recent.length < 2) return null;
+  const t0 = recent[0].ts;
+  const points = recent.map(r=>({t:(r.ts-t0)/60000, v:r.val}));
+  return runRegression(points);
+}
+
+function runRegression(points) {
+  // Weighted linear regression — newer points get higher weight (exact match of original JS)
+  let sw=0,swt=0,swv=0,swtt=0,swtv=0;
+  points.forEach((p,i)=>{
+    const w=i+1;  // linear ramp: newest = highest weight
+    sw+=w; swt+=w*p.t; swv+=w*p.v; swtt+=w*p.t*p.t; swtv+=w*p.t*p.v;
+  });
+  const denom=sw*swtt-swt*swt;
+  if (Math.abs(denom)<1e-10) return null;
+  const slope=(sw*swtv-swt*swv)/denom;
+  const intercept=(swv-slope*swt)/sw;
+  const tLast=points[points.length-1].t;
+  const predicted=intercept+slope*(tLast+30);
+  const current=points[points.length-1].v;
+  // Clamp ±10 mmol/L or ±180 mg/dL — matches original JS exactly
+  const maxDelta = isMmol() ? 10 : 180;
+  return Math.max(current-maxDelta, Math.min(current+maxDelta, predicted));
+}
+
+// Synchronous fallback used by notification checks and pill (uses memory only)
+function calcPrediction() { return predFromMemory(); }
+
+// ════════════════════════════════════════════════
+// SENSOR LIFE
+// ════════════════════════════════════════════════
+function getSensorStatus() {
+  if (!C.showSensor||!C.sensorStart) return null;
+  const start=new Date(C.sensorStart);
+  if (isNaN(start.getTime())) return null;
+  const dur=parseInt(C.sensorDuration)||10;
+  const end=new Date(start.getTime()+dur*86400000);
+  const msLeft=end-Date.now();
+  const hoursOverdue=msLeft<0?Math.floor(-msLeft/3600000):0;
+  const daysLeft=Math.max(0,Math.floor(msLeft/86400000));
+  const hoursLeft=Math.max(0,Math.floor((msLeft%86400000)/3600000));
+  const minutesLeft=Math.max(0,Math.floor((msLeft%3600000)/60000));
+  const pct=Math.max(0,Math.min(1,msLeft/(dur*86400000)));
+  return {daysLeft,hoursLeft,minutesLeft,hoursOverdue,pct,dur};
+}
+
+// ════════════════════════════════════════════════
+// HA REST API
+// ════════════════════════════════════════════════
+function haFetch(path, opts={}) {
+  return fetch(C.haUrl.replace(/\/+$/,'')+path, {
+    ...opts,
+    headers:{'Authorization':'Bearer '+C.token,'Content-Type':'application/json',...(opts.headers||{})}
+  });
+}
+
+async function fetchCurrentState() {
+  if (!C.haUrl||!C.token||!C.glucoseEntity) return;
+  try {
+    const res=await haFetch('/api/states/'+C.glucoseEntity);
+    const d=await res.json();
+    const val=parseFloat(d.state); if (isNaN(val)) return;
+    const ts=new Date(d.last_changed||d.last_updated).getTime();
+    let trend=d.attributes?.trend||d.attributes?.trend_description||null;
+    if (C.trendEntity) {
+      try {
+        const tr=await haFetch('/api/states/'+C.trendEntity);
+        const td=await tr.json();
+        trend=td.state||td.attributes?.trend||trend;
+      } catch(e){}
+    }
+    pushReading({val, trend, ts, attrs:d.attributes||{}});
+  } catch(e){ console.warn('fetchState',e); }
+}
+
+async function fetchHistory(hours) {
+  if (!C.haUrl||!C.token||!C.glucoseEntity) return;
+  const h = Math.max(hours||C.graphHours, 24);
+  try {
+    const start=new Date(Date.now()-h*3600000).toISOString();
+
+    // Fetch glucose history WITH attributes so we get trend directly from each reading.
+    // Also fetch trend entity history in parallel as a supplementary source.
+    const glucosePromise = haFetch(
+      `/api/history/period/${start}?filter_entity_id=${C.glucoseEntity}&minimal_response=false`
+    ).then(r=>r.json());
+
+    const trendPromise = C.trendEntity
+      ? haFetch(`/api/history/period/${start}?filter_entity_id=${C.trendEntity}&minimal_response=false`).then(r=>r.json())
+      : Promise.resolve(null);
+
+    const [glucoseData, trendData] = await Promise.all([glucosePromise, trendPromise]);
+
+    // Build glucose readings — extract trend from attributes directly
+    const arr=(glucoseData?.[0]||[]).filter(s=>!isNaN(parseFloat(s.state)));
+    const newReadings=arr.map(s=>{
+      const attrs=s.attributes||{};
+      const trend=attrs.trend||attrs.trend_description||attrs.trend_arrow||null;
+      return {
+        val:  parseFloat(s.state),
+        trend: (trend&&trend!=='unavailable'&&trend!=='unknown') ? trend : null,
+        ts:   new Date(s.last_changed||s.last_updated).getTime(),
+        attrs
+      };
+    });
+
+    // Build sorted trend timeline from trend entity as supplementary source
+    if (trendData) {
+      const trendPoints=(trendData?.[0]||[])
+        .filter(s=>s.state&&s.state!=='unavailable'&&s.state!=='unknown')
+        .map(s=>({ts:new Date(s.last_changed||s.last_updated).getTime(), trend:s.state}))
+        .sort((a,b)=>a.ts-b.ts);
+
+      if (trendPoints.length) {
+        // Fill in trend for any reading that doesn't have one from attributes.
+        // Use last-known-value: the latest trend point at or before the reading's time.
+        newReadings.forEach(r=>{
+          if (r.trend) return; // already have it from attributes
+          let active=null;
+          for (const tp of trendPoints) {
+            if (tp.ts<=r.ts) active=tp.trend;
+            else {
+              // Accept a reading up to 10 min after as a fallback if nothing came before
+              if (!active && (tp.ts-r.ts)<=10*60000) active=tp.trend;
+              break;
+            }
+          }
+          if (active) r.trend=active;
+        });
+      }
+    }
+
+    mergeReadings(newReadings);
+    updateUI();
+  } catch(e){ console.warn('fetchHistory',e); }
+}
+
+// ── Trend timeline — same source as the trend popup, used to annotate the readings list ──
+async function fetchTrendTimeline() {
+  if (!C.haUrl||!C.token||!C.trendEntity) return;
+  try {
+    // Fetch 48h — twice our glucose window — so we always have a trend entry
+    // active BEFORE the oldest glucose reading, even if the trend hasn't changed for hours.
+    const start=new Date(Date.now()-48*3600000).toISOString();
+    const res=await haFetch(`/api/history/period/${start}?filter_entity_id=${C.trendEntity}&minimal_response=false`);
+    const data=await res.json();
+    trendTimeline=(data?.[0]||[])
+      .filter(s=>s.state&&s.state!=='unavailable'&&s.state!=='unknown')
+      .map(s=>({ts:new Date(s.last_changed||s.last_updated).getTime(), trend:s.state}))
+      .sort((a,b)=>a.ts-b.ts);
+    updateUI();
+  } catch(e){ console.warn('fetchTrendTimeline',e); }
+}
+
+// Returns the trend active at timestamp ts.
+// Uses last-known-value: latest entry at or before ts.
+// Falls back to the oldest known entry if nothing precedes ts
+// (covers the case where trend hasn't changed since before our window).
+function getTrendForTime(ts) {
+  if (!trendTimeline.length) return null;
+  let active=null;
+  for (const tp of trendTimeline) {
+    if (tp.ts<=ts) active=tp.trend;
+    else break;
+  }
+  // Nothing found at or before ts — use oldest known entry as best guess
+  if (!active) active=trendTimeline[0].trend;
+  return active;
+}
+
+async function fetchHistoryForRange(hours) {
+  if (!C.haUrl||!C.token||!C.glucoseEntity) return [];
+  try {
+    const start=new Date(Date.now()-hours*3600000).toISOString();
+    const res=await haFetch(`/api/history/period/${start}?filter_entity_id=${C.glucoseEntity}&minimal_response=true&no_attributes=true`);
+    const data=await res.json();
+    return (data?.[0]||[]).filter(s=>!isNaN(parseFloat(s.state)))
+      .map(s=>({val:parseFloat(s.state), ts:new Date(s.last_changed||s.last_updated).getTime()}))
+      .sort((a,b)=>a.ts-b.ts);
+  } catch(e){ return []; }
+}
+
+function pushReading(r) {
+  const existing = readings.find(x => x.ts === r.ts);
+  if (!existing) {
+    readings.unshift(r);
+    readings.sort((a,b) => b.ts - a.ts);
+    readings = readings.slice(0, 288);
+  } else {
+    // Timestamp already exists (from history fetch with no_attributes=true which has trend:null).
+    // Update trend and attrs if the new reading carries them.
+    if (r.trend && r.trend !== 'unavailable' && r.trend !== 'unknown') {
+      existing.trend = r.trend;
+    }
+    if (r.attrs && Object.keys(r.attrs).length > 0) {
+      existing.attrs = r.attrs;
+    }
+  }
+  saveR();
+  updateUI();
+}
+function mergeReadings(arr) {
+  const map={};
+  // Seed map with existing readings
+  readings.forEach(r=>{ map[r.ts]=r; });
+  // Merge incoming — update trend/attrs if incoming has them and existing doesn't
+  arr.forEach(r=>{
+    if (map[r.ts]) {
+      if (r.trend && r.trend!=='unavailable' && r.trend!=='unknown' && !map[r.ts].trend) {
+        map[r.ts].trend=r.trend;
+      }
+      if (r.attrs && Object.keys(r.attrs).length>0 && !Object.keys(map[r.ts].attrs||{}).length) {
+        map[r.ts].attrs=r.attrs;
+      }
+    } else {
+      map[r.ts]=r;
+    }
+  });
+  readings=Object.values(map).sort((a,b)=>b.ts-a.ts).slice(0,288);
+  saveR();
+}
+
+function getGraphReadings(hours) {
+  const cutoff=Date.now()-(hours||C.graphHours)*3600000;
+  return readings.filter(r=>r.ts>=cutoff).sort((a,b)=>a.ts-b.ts);
+}
+
+// ════════════════════════════════════════════════
+// WEBSOCKET
+// ════════════════════════════════════════════════
+function connectWS() {
+  if (!C.haUrl||!C.token) return;
+  clearTimeout(wsRetry);
+  if (ws) { ws.onclose=null; ws.close(); ws=null; }
+  connDot('connecting');
+  const wsUrl=C.haUrl.replace(/^http/,'ws').replace(/\/+$/,'')+'/api/websocket';
+  ws=new WebSocket(wsUrl);
+  let mid=1;
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    if (m.type==='auth_required') ws.send(JSON.stringify({type:'auth',access_token:C.token}));
+    else if (m.type==='auth_ok') {
+      connDot('ok');
+      ws.send(JSON.stringify({id:mid++,type:'subscribe_events',event_type:'state_changed'}));
+    } else if (m.type==='auth_invalid') { connDot('err'); ws.close(); }
+    else if (m.type==='event'&&m.event?.event_type==='state_changed') {
+      const d=m.event.data;
+      if (d.entity_id===C.glucoseEntity) {
+        const val=parseFloat(d.new_state?.state);
+        if (!isNaN(val)) {
+          const ts=new Date(d.new_state.last_changed||d.new_state.last_updated).getTime();
+          const trend=d.new_state.attributes?.trend||d.new_state.attributes?.trend_description||null;
+          pushReading({val,trend,ts,attrs:d.new_state.attributes||{}});
+          predCache={val:null,ts:0};  // new reading — recalculate prediction
+          onLivePush();
+        }
+      }
+      if (C.trendEntity&&d.entity_id===C.trendEntity) {
+        const newState=d.new_state?.state;
+        if (newState&&newState!=='unavailable'&&newState!=='unknown') {
+          const tts=new Date(d.new_state.last_changed||d.new_state.last_updated).getTime();
+          trendTimeline.push({ts:tts, trend:newState});
+          trendTimeline.sort((a,b)=>a.ts-b.ts);
+        }
+        if (readings.length>0) {
+          readings[0].trend=d.new_state?.state||readings[0].trend;
+          updateTrendEl(readings[0].trend);
+        }
+        updateReadingsList(); // redraw with updated trend timeline
+      }
+    }
+  };
+  ws.onclose=()=>{ connDot('polling'); wsRetry=setTimeout(connectWS,8000); };
+  ws.onerror=()=>{ connDot('polling'); };
+}
+function connDot(s, detail) {
+  const el=document.getElementById('conn-dot');
+  el.className=s;
+  const labels={
+    ok:      'Live — WebSocket connected',
+    connecting:'Connecting to HA…',
+    polling: 'Polling — data updates every 60s',
+    err:     'Cannot reach Home Assistant',
+  };
+  el.title=(detail||labels[s]||s);
+}
+
+// Called whenever a live WebSocket push arrives — updates the footer
+function onLivePush() {
+  const lu=document.getElementById('last-updated');
+  if (lu) lu.textContent='Live update '+fmtHHMM(Date.now());
+}
+
+// ════════════════════════════════════════════════
+// MAIN UI UPDATE
+// ════════════════════════════════════════════════
+function updateUI() {
+  const r=readings[0]; if (!r) return;
+  const val=r.val;
+  const col=statusColor(val);
+  const unavail=isNaN(val);
+  const dCol=unavail?'rgba(255,255,255,.28)':col;
+
+  // Card background
+  const mc=document.getElementById('main-card');
+  if (mc) mc.style.background=cardBgRgba();
+
+  // Glucose value
+  const gEl=document.getElementById('dg-glucose');
+  if (gEl) gEl.textContent=fmtVal(val);
+  const gnEl=document.getElementById('dg-glucose-num');
+  if (gnEl) gnEl.style.color=dCol;
+  const uEl=document.getElementById('dg-unit');
+  if (uEl) uEl.textContent=unitLabel();
+
+  // Ring arc — normalise position across threshold range
+  const ringEl=document.getElementById('dg-ring-arc');
+  if (ringEl&&!unavail) {
+    const lo=parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+    const pct=Math.min(1,Math.max(0,(val-lo*0.6)/(hi*1.4-lo*0.6)));
+    ringEl.style.strokeDashoffset=CIRC*(1-pct);
+    ringEl.style.stroke=dCol;
+  }
+
+  // Status badge
+  const badge=document.getElementById('dg-status-badge');
+  if (badge) {
+    badge.textContent=statusLabel(val);
+    badge.style.background=dCol+'22';
+    badge.style.color=dCol;
+    badge.style.border=`1px solid ${dCol}44`;
+  }
+
+  // Time ago
+  const mins=Math.floor((Date.now()-r.ts)/60000);
+  const ta=document.getElementById('dg-time-ago');
+  if (ta) { ta.textContent=fmtTimeAgo(r.ts); ta.style.color=mins>15?C.highColor:'rgba(255,255,255,.38)'; }
+
+  // Trend
+  updateTrendEl(r.trend);
+
+  // Prediction pill
+  updatePredictPill();
+
+  // Sensor pill
+  updateSensorPill();
+
+  // Graph (no crosshair — tap opens popup)
+  if (C.showGraph) {
+    document.getElementById('dg-graph-wrap').style.display='';
+    drawMainGraph();
+  } else {
+    document.getElementById('dg-graph-wrap').style.display='none';
+  }
+
+  // Stats bar
+  updateStats();
+
+  // Recent readings list
+  updateReadingsList();
+
+  // Footer
+  const lu=document.getElementById('last-updated');
+  if (lu) lu.textContent='Updated '+fmtHHMM(Date.now());
+}
+
+function updateTrendEl(rawTrend) {
+  const effective = rawTrend || latestTrend();
+  const ti  = parseTrend(effective);
+  const r   = readings[0];
+  const col = r ? statusColor(r.val) : 'rgba(255,255,255,.3)';
+  const arrowEl = document.getElementById('dg-trend-arrow');
+  const textEl  = document.getElementById('dg-trend-text');
+  if (arrowEl) { arrowEl.textContent = ti ? trendArrowChar(ti.deg) : '→'; arrowEl.style.color = col; }
+  if (textEl)  { textEl.textContent  = ti?.label || (effective ? String(effective) : '--'); textEl.style.color = col; }
+}
+
+async function updatePredictPill() {
+  const pill=document.getElementById('dg-predict-pill');
+  const valEl=document.getElementById('dg-predict-value');
+  if (!pill) return;
+  applyPredictPill(pill, valEl, await fetchPrediction());
+}
+function applyPredictPill(pill,valEl,v) {
+  pill.style.display='flex';
+  valEl.textContent=v!==null&&!isNaN(v)?fmtVal(v):'--';
+  const col=v!==null&&!isNaN(v)?statusColor(v):'rgba(255,255,255,.35)';
+  pill.style.background=col+'1a'; pill.style.borderColor=col+'55';
+  valEl.style.color=col;
+  const lbl=pill.querySelector('.dg-sub-pill-label');
+  if (lbl) lbl.style.color=col;
+}
+
+function updateSensorPill() {
+  const pill=document.getElementById('dg-sensor-pill');
+  if (!pill) return;
+  const s=getSensorStatus();
+  if (!s) { pill.style.display='none'; return; }
+  const isExpired=s.hoursOverdue>0, isUrgent=!isExpired&&s.daysLeft<=1;
+  const col=isExpired?C.sensorExpiredColor:isUrgent?C.sensorUrgentColor:C.sensorNormalColor;
+  pill.style.display='flex';
+  pill.style.background=C.sensorPillBg;
+  pill.style.borderColor=col+'55';
+  let valTxt, lblTxt;
+  if (isExpired) { valTxt=`${s.hoursOverdue}h`; lblTxt='overdue'; }
+  else if (s.daysLeft===0) { valTxt=`${s.hoursLeft}h`; lblTxt='remaining'; }
+  else { valTxt=`${s.daysLeft}`; lblTxt='days left'; }
+  const vEl=document.getElementById('dg-sensor-value');
+  const lEl=document.getElementById('dg-sensor-label');
+  if (vEl) { vEl.textContent=valTxt; vEl.style.color=col; }
+  if (lEl) { lEl.textContent=lblTxt; lEl.style.color=col; }
+}
+
+// ── Stats bar ──
+function updateStats() {
+  const gr=getGraphReadings(3);
+  if (!gr.length) return;
+  document.getElementById('stats-bar').style.display='flex';
+  const vals=gr.map(r=>r.val);
+  const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const inRange=vals.filter(v=>v>=parseFloat(C.lowThreshold)&&v<=parseFloat(C.highThreshold)).length;
+  const tir=Math.round(inRange/vals.length*100);
+  const avgEl=document.getElementById('stat-avg');
+  if (avgEl) { avgEl.textContent=fmtVal(avg); avgEl.style.color=statusColor(avg); }
+  const tirEl=document.getElementById('stat-tir');
+  if (tirEl) { tirEl.textContent=`${tir}%`; tirEl.style.color=tir>=70?'#30d158':tir>=50?'#ff9f0a':'#ff453a'; }
+  const rEl=document.getElementById('stat-readings');
+  if (rEl) rEl.textContent=vals.length;
+}
+
+// ── Recent readings list — 24 hours, scrollable ──
+function updateReadingsList() {
+  const list=document.getElementById('readings-list');
+  const card=document.getElementById('readings-card');
+  const countEl=document.getElementById('readings-count');
+  if (!list||!readings.length) return;
+  card.style.display='';
+
+  // All readings from last 24h, newest first
+  const cutoff=Date.now()-24*3600000;
+  const recent=readings.filter(r=>r.ts>=cutoff).sort((a,b)=>b.ts-a.ts);
+  if (countEl) countEl.textContent=`${recent.length} readings`;
+
+  list.innerHTML='';
+  let lastDay='';
+  recent.forEach((r,i)=>{
+    const col=statusColor(r.val);
+    // r.trend is per-reading (from glucose entity attributes — one value per CGM reading).
+    // getTrendForTime uses the trend entity's state-change history as a fallback.
+    const effectiveTrend=r.trend||getTrendForTime(r.ts)||null;
+    const ti=parseTrend(effectiveTrend);
+
+    // Day separator
+    const d=new Date(r.ts);
+    const dayStr=d.toDateString();
+    if (dayStr!==lastDay) {
+      lastDay=dayStr;
+      const now=new Date();
+      const yest=new Date(now); yest.setDate(yest.getDate()-1);
+      const dayLabel=dayStr===now.toDateString()?'Today':dayStr===yest.toDateString()?'Yesterday':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+      const sep=document.createElement('div');
+      sep.style.cssText='padding:6px 16px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.25);background:rgba(255,255,255,.03);';
+      sep.textContent=dayLabel;
+      list.appendChild(sep);
+    }
+
+    const row=document.createElement('div'); row.className='r-row';
+    const trendPillHtml=ti
+      ? `<span class="hist-badge" style="background:${col}18;color:${col};border:1px solid ${col}44;"><span style="font-size:13px;">${trendArrowChar(ti.deg)}</span><span>${ti.label}</span></span>`
+      : `<span class="hist-badge" style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.1);">—</span>`;
+    row.innerHTML=`
+      <span class="r-time">${fmtHHMM(r.ts)}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;">${trendPillHtml}</span>
+      <span class="r-val" style="color:${i===0?col:'rgba(255,255,255,.85)'}">${fmtVal(r.val)}</span>
+      <span class="r-badge" style="background:${col}22;color:${col};border:1px solid ${col}44;margin-left:8px;">${statusLabel(r.val)}</span>`;
+    row.addEventListener('click', ()=>openReadingPopup(r));
+    list.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════════════
+// GRAPH — SVG, matches JS card layout exactly
+// ════════════════════════════════════════════════
+function buildGraphSVG(vals, times, popupMode) {
+  const W=400, H=popupMode?160:110;
+  const pad={t:6,r:8,b:20,l:30};
+  const plotW=W-pad.l-pad.r, plotH=H-pad.t-pad.b;
+  const lo=parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+  const dp=C.decimalPlaces??1;
+
+  if (!vals||vals.length<2) {
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">
+      <text x="${W/2}" y="${H/2}" fill="rgba(255,255,255,.25)" font-size="12" text-anchor="middle" font-family="-apple-system,sans-serif">Not enough data</text></svg>`;
+  }
+
+  const rawMin=Math.min(...vals), rawMax=Math.max(...vals);
+  const vpad=(rawMax-rawMin)*0.15||1;
+  const vMin=Math.min(rawMin-vpad, lo*0.85);
+  const vMax=Math.max(rawMax+vpad, hi*1.1);
+  const vRange=vMax-vMin;
+
+  const xs=vals.map((_,i)=>pad.l+(i/(vals.length-1))*plotW);
+  const ys=vals.map(v=>pad.t+plotH-((v-vMin)/vRange)*plotH);
+  const clampY=v=>Math.max(pad.t,Math.min(pad.t+plotH,pad.t+plotH-((v-vMin)/vRange)*plotH));
+  const loY=clampY(lo), hiY=clampY(hi);
+  const lastX=xs[xs.length-1], lastY=ys[ys.length-1];
+
+  const linePath=xs.map((x,i)=>`${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  const fillPath=`${linePath} L${lastX.toFixed(1)},${(pad.t+plotH).toFixed(1)} L${pad.l},${(pad.t+plotH).toFixed(1)} Z`;
+
+  const loLabel=isMmol()?lo.toFixed(dp):Math.round(lo).toString();
+  const hiLabel=isMmol()?hi.toFixed(dp):Math.round(hi).toString();
+  const dotCol=statusColor(vals[vals.length-1]);
+  const curLabel=isMmol()?vals[vals.length-1].toFixed(dp):Math.round(vals[vals.length-1]).toString();
+  const valLabelX=lastX+(popupMode?9:7);
+  const valLabelY=Math.max(pad.t+7,Math.min(pad.t+plotH-2,lastY+3));
+  const gradId=popupMode?'dgFP':'dgFC';
+  const clipId=popupMode?'dgCP':'dgCC';
+  const sw=popupMode?2.5:2;
+
+  let segs='';
+  for (let i=1;i<vals.length;i++) {
+    const c=statusColor((vals[i-1]+vals[i])/2);
+    segs+=`<line x1="${xs[i-1].toFixed(1)}" y1="${ys[i-1].toFixed(1)}" x2="${xs[i].toFixed(1)}" y2="${ys[i].toFixed(1)}" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  }
+
+  let xLbls='';
+  if (times&&times.length>=2) {
+    xLbls=`<text x="${pad.l+2}" y="${H-9}" fill="rgba(255,255,255,.3)" font-size="8" text-anchor="start" font-family="-apple-system,sans-serif">${fmtHHMM(times[0])}</text>
+    <text x="${W-pad.r-2}" y="${H-9}" fill="rgba(255,255,255,.3)" font-size="8" text-anchor="end" font-family="-apple-system,sans-serif">${fmtHHMM(times[times.length-1])}</text>`;
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible;">
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${C.graphFillColor}" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="${C.graphFillColor}" stop-opacity="0.02"/>
+      </linearGradient>
+      <clipPath id="${clipId}"><rect x="${pad.l}" y="${pad.t}" width="${plotW}" height="${plotH}"/></clipPath>
+    </defs>
+    <line x1="${pad.l}" y1="${loY.toFixed(1)}" x2="${W-pad.r}" y2="${loY.toFixed(1)}" stroke="${C.lowColor}" stroke-width="1" stroke-dasharray="4 3" opacity=".45"/>
+    <line x1="${pad.l}" y1="${hiY.toFixed(1)}" x2="${W-pad.r}" y2="${hiY.toFixed(1)}" stroke="${C.highColor}" stroke-width="1" stroke-dasharray="4 3" opacity=".45"/>
+    <text x="${pad.l-3}" y="${(loY+3).toFixed(1)}" fill="${C.lowColor}" font-size="7" text-anchor="end" opacity=".7" font-family="-apple-system,sans-serif">${loLabel}</text>
+    <text x="${pad.l-3}" y="${(hiY+3).toFixed(1)}" fill="${C.highColor}" font-size="7" text-anchor="end" opacity=".7" font-family="-apple-system,sans-serif">${hiLabel}</text>
+    <path d="${fillPath}" fill="url(#${gradId})" clip-path="url(#${clipId})"/>
+    <g clip-path="url(#${clipId})">${segs}</g>
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="${popupMode?5:3.5}" fill="${dotCol}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>
+    <text x="${valLabelX.toFixed(1)}" y="${valLabelY.toFixed(1)}" fill="${dotCol}" font-size="${popupMode?9:8}" font-weight="700" text-anchor="start" opacity=".9" font-family="-apple-system,sans-serif">${curLabel}</text>
+    ${xLbls}
+  </svg>`;
+}
+
+function drawMainGraph() {
+  // NO crosshair on inline graph — tap opens popup (matches original JS card)
+  const el=document.getElementById('dg-graph-inner');
+  if (!el) return;
+  const gr=getGraphReadings();
+  el.innerHTML=buildGraphSVG(gr.map(r=>r.val), gr.map(r=>r.ts), false);
+}
+
+// ════════════════════════════════════════════════
+// CROSSHAIR — popup graph only (matches JS card)
+// ════════════════════════════════════════════════
+function attachCrosshair(svg, vals, times) {
+  const W=400, H=160;
+  const pad={t:6,r:8,b:20,l:30};
+  const plotW=W-pad.l-pad.r, plotH=H-pad.t-pad.b;
+  const rawMin=Math.min(...vals), rawMax=Math.max(...vals);
+  const vpad=(rawMax-rawMin)*0.15||1;
+  const lo=parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+  const vMin=Math.min(rawMin-vpad,lo*0.85);
+  const vMax=Math.max(rawMax+vpad,hi*1.1);
+  const vRange=vMax-vMin;
+  const dp=C.decimalPlaces??1;
+  let chGrp=null;
+
+  const clientToSvgX=cx=>{
+    const rect=svg.getBoundingClientRect();
+    return (cx-rect.left)*(W/rect.width);
+  };
+
+  const show=svgX=>{
+    const cx=Math.max(pad.l,Math.min(W-pad.r,svgX));
+    const xRatio=(cx-pad.l)/plotW;
+    const exactIdx=xRatio*(vals.length-1);
+    const lIdx=Math.floor(exactIdx);
+    const rIdx=Math.min(lIdx+1,vals.length-1);
+    const frac=exactIdx-lIdx;
+    const v=vals[lIdx]+(vals[rIdx]-vals[lIdx])*frac;
+    const label=isMmol()?v.toFixed(dp):Math.round(v).toString();
+    const col=statusColor(v);
+    const snapIdx=frac<0.5?lIdx:rIdx;
+    const timeStr=times?fmtHHMM(times[snapIdx]):'';
+    const hasTime=timeStr.length>0;
+
+    if (chGrp) chGrp.remove();
+    chGrp=document.createElementNS('http://www.w3.org/2000/svg','g');
+
+    const svgNS='http://www.w3.org/2000/svg';
+    const mk=(tag,attrs)=>{ const el=document.createElementNS(svgNS,tag); Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v)); return el; };
+
+    const lblW=hasTime?68:(isMmol()?62:52), lblH=hasTime?46:28;
+    const lblX=Math.max(pad.l+lblW/2,Math.min(W-pad.r-lblW/2,cx));
+    const lblY=pad.t+1;
+    const ff="-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif";
+
+    chGrp.appendChild(mk('line',{x1:cx.toFixed(1),y1:pad.t,x2:cx.toFixed(1),y2:pad.t+plotH,stroke:'rgba(255,255,255,.75)','stroke-width':'1.5','stroke-dasharray':'4 3'}));
+    chGrp.appendChild(mk('rect',{x:(lblX-lblW/2).toFixed(1),y:lblY,width:lblW,height:lblH,rx:6,fill:'rgba(0,0,0,.82)',stroke:col,'stroke-width':'1.5'}));
+
+    const vt=mk('text',{x:lblX.toFixed(1),y:(lblY+(hasTime?17:19)).toFixed(1),fill:col,'font-size':'19','font-weight':'700','text-anchor':'middle','font-family':ff});
+    vt.textContent=label; chGrp.appendChild(vt);
+
+    if (hasTime) {
+      const tt=mk('text',{x:lblX.toFixed(1),y:(lblY+38).toFixed(1),fill:'rgba(255,255,255,.65)','font-size':'13','font-weight':'500','text-anchor':'middle','font-family':ff});
+      tt.textContent=timeStr; chGrp.appendChild(tt);
+    }
+    svg.appendChild(chGrp);
+  };
+
+  const clear=()=>{ if(chGrp){chGrp.remove();chGrp=null;} };
+  svg.style.cursor='crosshair';
+  let drag=false;
+
+  svg.addEventListener('touchstart',e=>{e.stopPropagation();e.preventDefault();const x=clientToSvgX(e.touches[0].clientX);if(x>=pad.l&&x<=W-pad.r){drag=true;show(x);}},{passive:false});
+  svg.addEventListener('touchmove',e=>{if(!drag)return;e.stopPropagation();e.preventDefault();const x=clientToSvgX(e.touches[0].clientX);if(x>=pad.l&&x<=W-pad.r)show(x);},{passive:false});
+  svg.addEventListener('touchend',e=>{e.stopPropagation();drag=false;},{passive:false});
+  svg.addEventListener('touchcancel',()=>{drag=false;});
+  svg.addEventListener('mousedown',e=>{e.stopPropagation();const x=clientToSvgX(e.clientX);if(x>=pad.l&&x<=W-pad.r){drag=true;show(x);}});
+  svg.addEventListener('mousemove',e=>{if(!drag)return;const x=clientToSvgX(e.clientX);if(x>=pad.l&&x<=W-pad.r)show(x);});
+  svg.addEventListener('mouseup',e=>{e.stopPropagation();drag=false;const x=clientToSvgX(e.clientX);if(x<pad.l||x>W-pad.r)clear();});
+  svg.addEventListener('mouseleave',()=>{drag=false;});
+  svg.addEventListener('click',e=>{e.stopPropagation();const x=clientToSvgX(e.clientX);if(x<pad.l||x>W-pad.r)clear();});
+}
+
+// ════════════════════════════════════════════════
+// POPUPS
+// ════════════════════════════════════════════════
+function openPopup() { document.getElementById('popup-overlay').classList.add('open'); }
+function closePopup() {
+  const ov=document.getElementById('popup-overlay');
+  ov.style.transition='opacity .18s';ov.style.opacity='0';
+  setTimeout(()=>{ ov.classList.remove('open');ov.style.opacity='';ov.style.transition=''; },180);
+}
+
+function openReadingPopup(r) {
+  const col=statusColor(r.val);
+  const effectiveTrend=r.trend||getTrendForTime(r.ts)||null;
+  const ti=parseTrend(effectiveTrend);
+  const d=new Date(r.ts);
+  const timeStr=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const dateStr=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+  // Populate header with this specific reading's data
+  const popVal=document.getElementById('popup-val');
+  popVal.textContent=fmtVal(r.val); popVal.style.color=col;
+  document.getElementById('popup-unit').textContent=unitLabel();
+  const sb=document.getElementById('popup-status-badge');
+  sb.textContent=statusLabel(r.val);sb.style.background=col+'22';sb.style.color=col;sb.style.border=`1px solid ${col}44`;
+  document.getElementById('popup-time-ago').textContent=timeStr;
+  const pillEl=document.getElementById('popup-trend-pill');
+  if (pillEl) {
+    pillEl.innerHTML=ti
+      ? `<span class="hist-badge" style="background:${col}18;color:${col};border:1px solid ${col}44;font-size:12px;"><span style="font-size:16px;">${trendArrowChar(ti.deg)}</span><span>${ti.label}</span></span>`
+      : `<span class="hist-badge" style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.1);font-size:12px;">No trend data</span>`;
+  }
+
+  document.getElementById('popup-reading-row').style.display='flex';
+  document.getElementById('popup-seg').style.display='none';
+  document.getElementById('popup-seg').innerHTML='';
+  document.getElementById('popup-graph-wrap').style.display='none';
+  document.getElementById('popup-graph-wrap').innerHTML='';
+  document.getElementById('popup-title').textContent=dateStr;
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML='';
+  const rows=[
+    {label:'Time', value:`${dateStr}, ${timeStr}`},
+    {label:'Value', value:`${fmtVal(r.val)} ${unitLabel()}`},
+    {label:'Status', value:statusLabel(r.val)},
+    {label:'Trend', value:ti?.label||(effectiveTrend||'—')},
+  ];
+  const a=r.attrs||{};
+  const delta=a.delta??a.glucose_delta;
+  if (delta!==undefined) {
+    const ds=(parseFloat(delta)>=0?'+':'')+parseFloat(delta).toFixed(isMmol()?(C.decimalPlaces??1):0);
+    rows.push({label:'Change', value:`${ds} ${unitLabel()}`});
+  }
+  if (a.sensor_age!==undefined)     rows.push({label:'Sensor age',  value:a.sensor_age});
+  if (a.transmitter_id!==undefined) rows.push({label:'Transmitter', value:a.transmitter_id});
+  const batt=a.battery_level??a.battery;
+  if (batt!==undefined) rows.push({label:'Battery', value:`${batt}%`});
+  rows.forEach(({label,value})=>{
+    const row=document.createElement('div'); row.className='info-row';
+    row.innerHTML=`<span class="info-label">${label}</span><span class="info-value" style="${label==='Status'?'color:'+col:''}">${value}</span>`;
+    info.appendChild(row);
+  });
+  openPopup();
+}
+
+// ── Helper to reset popup shell to blank/no-header mode ──
+function blankPopup(title) {
+  document.getElementById('popup-reading-row').style.display='none';
+  document.getElementById('popup-seg').style.display='none';
+  document.getElementById('popup-seg').innerHTML='';
+  document.getElementById('popup-graph-wrap').style.display='none';
+  document.getElementById('popup-graph-wrap').innerHTML='';
+  document.getElementById('popup-title').textContent=title;
+  document.getElementById('popup-info-rows').innerHTML='';
+}
+
+function openAvgPopup() {
+  const gr=getGraphReadings(3);
+  if (!gr.length) return;
+  blankPopup('Average (3h)');
+  const vals=gr.map(r=>r.val);
+  const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const col=statusColor(avg);
+  const lo=parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+  const low=vals.filter(v=>v<lo), inR=vals.filter(v=>v>=lo&&v<=hi), high=vals.filter(v=>v>hi);
+  const avgLow=low.length?low.reduce((a,b)=>a+b,0)/low.length:null;
+  const avgHigh=high.length?high.reduce((a,b)=>a+b,0)/high.length:null;
+  const min=Math.min(...vals), max=Math.max(...vals);
+
+  const info=document.getElementById('popup-info-rows');
+  // Big hero number
+  info.innerHTML=`<div style="text-align:center;padding:10px 0 18px;">
+    <div style="font-size:52px;font-weight:700;letter-spacing:-2px;color:${col};line-height:1;">${fmtVal(avg)}</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">${unitLabel()} average over last 3 hours</div>
+  </div>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:2px;"></div>`;
+
+  const rows=[
+    {label:'Min', value:fmtVal(min), color:statusColor(min)},
+    {label:'Max', value:fmtVal(max), color:statusColor(max)},
+    {label:'Readings used', value:vals.length},
+    {label:'Low readings', value:low.length+(avgLow!==null?` (avg ${fmtVal(avgLow)})`:''), color:low.length?C.lowColor:null},
+    {label:'In range', value:inR.length, color:inR.length?C.normalColor:null},
+    {label:'High readings', value:high.length+(avgHigh!==null?` (avg ${fmtVal(avgHigh)})`:''), color:high.length?C.highColor:null},
+  ];
+  rows.forEach(({label,value,color})=>{
+    const row=document.createElement('div'); row.className='info-row';
+    row.innerHTML=`<span class="info-label">${label}</span><span class="info-value"${color?` style="color:${color}"`:''}>${value}</span>`;
+    info.appendChild(row);
+  });
+  openPopup();
+}
+
+function openTirPopup() {
+  const gr=getGraphReadings(3);
+  if (!gr.length) return;
+  blankPopup('Time in Range');
+  const vals=gr.map(r=>r.val);
+  const lo=parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+  const low=vals.filter(v=>v<lo);
+  const inR=vals.filter(v=>v>=lo&&v<=hi);
+  const high=vals.filter(v=>v>hi);
+  const tir=Math.round(inR.length/vals.length*100);
+  const tirLow=Math.round(low.length/vals.length*100);
+  const tirHigh=Math.round(high.length/vals.length*100);
+  const tirCol=tir>=70?'#30d158':tir>=50?'#ff9f0a':'#ff453a';
+
+  // Mini bar chart
+  const barHtml=`<div style="display:flex;border-radius:8px;overflow:hidden;height:14px;margin:0 0 16px;gap:2px;">
+    ${tirLow>0?`<div style="flex:${tirLow};background:${C.lowColor};border-radius:4px;min-width:2px;" title="Low ${tirLow}%"></div>`:''}
+    ${tir>0?`<div style="flex:${tir};background:#30d158;border-radius:4px;min-width:2px;" title="In range ${tir}%"></div>`:''}
+    ${tirHigh>0?`<div style="flex:${tirHigh};background:${C.highColor};border-radius:4px;min-width:2px;" title="High ${tirHigh}%"></div>`:''}
+  </div>`;
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML=`<div style="text-align:center;padding:10px 0 18px;">
+    <div style="font-size:52px;font-weight:700;letter-spacing:-2px;color:${tirCol};line-height:1;">${tir}%</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">Time in range over last 3 hours</div>
+  </div>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:14px;"></div>
+  ${barHtml}`;
+
+  const rows=[
+    {label:'🟢 In range', value:`${inR.length} readings (${tir}%)`, color:'#30d158'},
+    {label:'🔴 Low (<'+fmtVal(lo)+')', value:`${low.length} readings (${tirLow}%)`, color:low.length?C.lowColor:'rgba(255,255,255,.4)'},
+    {label:'🟠 High (>'+fmtVal(hi)+')', value:`${high.length} readings (${tirHigh}%)`, color:high.length?C.highColor:'rgba(255,255,255,.4)'},
+    {label:'Target range', value:`${fmtVal(lo)} – ${fmtVal(hi)} ${unitLabel()}`},
+  ];
+  rows.forEach(({label,value,color})=>{
+    const row=document.createElement('div'); row.className='info-row';
+    row.innerHTML=`<span class="info-label">${label}</span><span class="info-value"${color?` style="color:${color}"`:''}>${value}</span>`;
+    info.appendChild(row);
+  });
+  openPopup();
+}
+
+function openReadingsCountPopup() {
+  const cutoff24=Date.now()-24*3600000;
+  const recent24=readings.filter(r=>r.ts>=cutoff24);
+  const gr3=getGraphReadings(3);
+  if (!gr3.length&&!recent24.length) return;
+  blankPopup('Readings');
+
+  // Interval estimate from last 10 readings
+  let intervalStr='--';
+  if (gr3.length>=2) {
+    const sorted=gr3.slice().sort((a,b)=>a.ts-b.ts);
+    const gaps=[];
+    for (let i=1;i<Math.min(sorted.length,11);i++) gaps.push(sorted[i].ts-sorted[i-1].ts);
+    const avgGap=gaps.reduce((a,b)=>a+b,0)/gaps.length;
+    intervalStr=`~${Math.round(avgGap/60000)} min`;
+  }
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML=`<div style="text-align:center;padding:10px 0 18px;">
+    <div style="font-size:52px;font-weight:700;letter-spacing:-2px;color:#fff;line-height:1;">${recent24.length}</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">Readings in last 24 hours</div>
+  </div>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:2px;"></div>`;
+
+  const oldest=recent24.length?new Date(Math.min(...recent24.map(r=>r.ts))):null;
+  const newest=recent24.length?new Date(Math.max(...recent24.map(r=>r.ts))):null;
+  const rows=[
+    {label:'Last 3 hours', value:gr3.length+' readings'},
+    {label:'Last 24 hours', value:recent24.length+' readings'},
+    {label:'Total cached', value:readings.length+' readings'},
+    {label:'Avg interval', value:intervalStr},
+    {label:'Oldest (24h)', value:oldest?fmtHHMM(oldest.getTime()):'--'},
+    {label:'Newest', value:newest?fmtHHMM(newest.getTime()):'--'},
+  ];
+  rows.forEach(({label,value})=>{
+    const row=document.createElement('div'); row.className='info-row';
+    row.innerHTML=`<span class="info-label">${label}</span><span class="info-value">${value}</span>`;
+    info.appendChild(row);
+  });
+  openPopup();
+}
+
+function fillPopupHeader() {
+  const r=readings[0]; if (!r) return;
+  const col=statusColor(r.val);
+  const effectiveTrend = r.trend||getTrendForTime(r.ts)||latestTrend();
+  const ti=parseTrend(effectiveTrend);
+  document.getElementById('popup-val').textContent=fmtVal(r.val);
+  document.getElementById('popup-val').style.color=col;
+  document.getElementById('popup-unit').textContent=unitLabel();
+  const sb=document.getElementById('popup-status-badge');
+  sb.textContent=statusLabel(r.val);sb.style.background=col+'22';sb.style.color=col;sb.style.border=`1px solid ${col}44`;
+  document.getElementById('popup-time-ago').textContent=fmtTimeAgo(r.ts);
+  const pillEl=document.getElementById('popup-trend-pill');
+  if (pillEl) {
+    pillEl.innerHTML=ti
+      ? `<span class="hist-badge" style="background:${col}18;color:${col};border:1px solid ${col}44;font-size:12px;"><span style="font-size:16px;">${trendArrowChar(ti.deg)}</span><span>${ti.label}</span></span>`
+      : `<span class="hist-badge" style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.1);font-size:12px;">No trend data</span>`;
+  }
+}
+
+let popupHours=3;
+
+async function openGraphPopup() {
+  fillPopupHeader();
+  document.getElementById('popup-reading-row').style.display='flex';
+  document.getElementById('popup-seg').style.display='';
+  document.getElementById('popup-graph-wrap').style.display='';
+  document.getElementById('popup-title').textContent=C.title||'Blood Sugar';
+
+  popupHours=C.graphHours||3;
+  buildPopupSeg([1,3,6,12,24], popupHours, h=>{popupHours=h; loadPopupGraph(h);});
+  openPopup();
+  loadPopupGraph(popupHours);
+
+  // Info rows from latest reading attrs
+  const r=readings[0];
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML='';
+  if (r) {
+    const effectiveTrend = r.trend || latestTrend();
+    const ti=parseTrend(effectiveTrend);
+    const rows=[
+      {label:'Trend', value:ti?.label||(effectiveTrend||'--')},
+      {label:'Last reading', value:fmtTimeAgo(r.ts)},
+    ];
+    const a=r.attrs||{};
+    const delta=a.delta??a.glucose_delta;
+    if (delta!==undefined) {
+      const ds=(parseFloat(delta)>=0?'+':'')+parseFloat(delta).toFixed(isMmol()?(C.decimalPlaces??1):0);
+      rows.push({label:'Change', value:`${ds} ${unitLabel()}`});
+    }
+    if (a.sensor_age!==undefined)     rows.push({label:'Sensor age',  value:a.sensor_age});
+    if (a.transmitter_id!==undefined) rows.push({label:'Transmitter', value:a.transmitter_id});
+    const batt=a.battery_level??a.battery;
+    if (batt!==undefined) rows.push({label:'Battery', value:`${batt}%`});
+    rows.forEach(({label,value})=>{
+      const row=document.createElement('div'); row.className='info-row';
+      row.innerHTML=`<span class="info-label">${label}</span><span class="info-value">${value}</span>`;
+      info.appendChild(row);
+    });
+  }
+}
+
+async function loadPopupGraph(hours) {
+  const wrap=document.getElementById('popup-graph-wrap');
+  wrap.style.display='';
+  wrap.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:130px;color:rgba(255,255,255,.25);font-size:12px;">Loading…</div>`;
+  const data=await fetchHistoryForRange(hours);
+  if (!data.length) { wrap.innerHTML=buildGraphSVG([],[],true); return; }
+  const vals=data.map(r=>r.val), times=data.map(r=>r.ts);
+  wrap.innerHTML=buildGraphSVG(vals,times,true);
+  const svg=wrap.querySelector('svg');
+  if (svg&&vals.length>=2) attachCrosshair(svg,vals,times);
+}
+
+function buildPopupSeg(hours, active, onSelect) {
+  const seg=document.getElementById('popup-seg');
+  seg.innerHTML='';
+  hours.forEach(h=>{
+    const btn=document.createElement('button');
+    btn.className='seg-btn'+(h===active?' active':'');
+    btn.textContent=`${h}h`; btn.dataset.h=h;
+    if (h===active) btn.style.background=C.accentColor;
+    const go=e=>{
+      if (e.type==='touchend') e.preventDefault();
+      active=h;
+      seg.querySelectorAll('.seg-btn').forEach(b=>{ b.classList.toggle('active',parseInt(b.dataset.h)===h); b.style.background=parseInt(b.dataset.h)===h?C.accentColor:''; });
+      onSelect(h);
+    };
+    btn.addEventListener('click',go); btn.addEventListener('touchend',go);
+    seg.appendChild(btn);
+  });
+}
+
+async function openTrendPopup() {
+  const r=readings[0]; if (!r) return;
+  const col=statusColor(r.val);
+  const effectiveTrend = r.trend || latestTrend();
+  const ti=parseTrend(effectiveTrend);
+
+  document.getElementById('popup-reading-row').style.display='none';
+  document.getElementById('popup-seg').style.display='none';
+  document.getElementById('popup-seg').innerHTML='';
+  document.getElementById('popup-graph-wrap').style.display='none';
+  document.getElementById('popup-graph-wrap').innerHTML='';
+  document.getElementById('popup-title').textContent='Trend History';
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML=`
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+      <span style="font-size:56px;line-height:1;color:${col};flex-shrink:0;">${ti?trendArrowChar(ti.deg):'—'}</span>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:${col};">${ti?.label||(effectiveTrend||'--')}</div>
+        <div style="margin-top:3px;font-size:11px;color:rgba(255,255,255,.35);">Current trend</div>
+      </div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:12px;"></div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:8px;">Recent History</div>
+    <div id="trend-hist-wrap"><div style="color:rgba(255,255,255,.25);font-size:12px;padding:10px 0;">Loading…</div></div>`;
+  openPopup();
+
+  if (C.trendEntity&&C.haUrl) {
+    try {
+      const start=new Date(Date.now()-24*3600000).toISOString();
+      const res=await haFetch(`/api/history/period/${start}?filter_entity_id=${C.trendEntity}&minimal_response=false`);
+      const data=await res.json();
+      const valid=(data?.[0]||[]).filter(s=>s.state&&s.state!=='unavailable'&&s.state!=='unknown');
+      const wrap=document.getElementById('trend-hist-wrap'); if (!wrap) return;
+      if (!valid.length) { wrap.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:12px;">No trend history available</div>'; return; }
+      wrap.innerHTML='';
+      [...valid].reverse().slice(0,50).forEach((entry,idx)=>{
+        const ts=entry.last_changed||entry.last_updated;
+        const ti2=parseTrend(entry.state);
+        const c2=idx===0?col:'rgba(255,255,255,.6)';
+        const bg=idx===0?`${c2}18`:'rgba(255,255,255,.06)';
+        const row=document.createElement('div'); row.className='hist-row';
+        row.innerHTML=`
+          <span class="hist-time">${fmtDateTime(ts)}</span>
+          <span class="hist-badge" style="background:${bg};color:${c2};border:1px solid ${idx===0?c2+'44':'rgba(255,255,255,.1)'};">
+            <span style="font-size:15px;">${ti2?trendArrowChar(ti2.deg):'—'}</span>
+            <span>${ti2?.label||entry.state}</span>
+          </span>`;
+        wrap.appendChild(row);
+      });
+    } catch(e){}
+  } else {
+    const w=document.getElementById('trend-hist-wrap');
+    if (w) w.innerHTML='<div style="color:rgba(255,255,255,.25);font-size:12px;">No trend entity configured in Settings.</div>';
+  }
+}
+
+async function openPredictPopup() {
+  document.getElementById('popup-reading-row').style.display='none';
+  document.getElementById('popup-seg').style.display='none';
+  document.getElementById('popup-seg').innerHTML='';
+  document.getElementById('popup-graph-wrap').style.display='none';
+  document.getElementById('popup-graph-wrap').innerHTML='';
+  document.getElementById('popup-title').textContent='30‑Min Forecast';
+
+  const r    = readings[0];
+  const pred = await fetchPrediction();
+  const cur  = r?.val;
+  const lo   = parseFloat(C.lowThreshold), hi=parseFloat(C.highThreshold);
+  const col  = pred!==null ? statusColor(pred) : C.accentColor;
+  const dp   = C.decimalPlaces??1;
+  const predFmt = pred!==null ? fmtVal(pred) : '--';
+  const isLow   = pred!==null && pred<lo;
+  const isHigh  = pred!==null && pred>hi;
+  const noData  = pred===null;
+
+  let icon, headline, message, subMessage;
+  if (noData) {
+    icon='🔄'; headline='Calculating…';
+    message='Not enough recent data to estimate yet. Check back in a few minutes once more readings have come in.';
+    subMessage=null;
+  } else if (isLow) {
+    icon='⚠️'; headline='Heads up — trending low';
+    message="Your glucose looks like it could be heading lower over the next 30 minutes. Now\u2019s a good time to check in with yourself and have something nearby just in case.";
+    subMessage="If you\u2019re feeling any symptoms or are unsure, follow your personal care plan or speak with your healthcare team.";
+  } else if (isHigh) {
+    icon='💧'; headline='Trending a little high';
+    message="It looks like your glucose may be on the higher side in 30 minutes. Staying hydrated and moving around a little can sometimes help \u2014 and it\u2019s worth keeping an eye on it.";
+    subMessage="If you\u2019re unsure what to do or this keeps happening, your healthcare team is the best person to ask.";
+  } else {
+    icon='✨'; headline='Looking good!';
+    message="Your glucose looks like it should stay nicely in range over the next 30 minutes. Keep doing what you\u2019re doing!";
+    subMessage=null;
+  }
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML='';
+
+  // Hero block — icon/headline left, value right
+  const hero=document.createElement('div');
+  hero.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  hero.innerHTML=`
+    <div>
+      <div style="font-size:38px;line-height:1;margin-bottom:6px;">${icon}</div>
+      <div style="font-size:16px;font-weight:700;color:${col};letter-spacing:-0.3px;">${headline}</div>
+      <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,.35);">Estimated in 30 minutes</div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;margin-left:12px;">
+      <div style="font-size:46px;font-weight:700;letter-spacing:-2px;line-height:1;color:${col};">${predFmt}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:3px;">${unitLabel()}</div>
+      ${pred!==null?`<div style="display:inline-block;margin-top:6px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;background:${col}22;color:${col};border:1px solid ${col}44;">${isLow?'Low':isHigh?'High':'In Range'}</div>`:''}
+    </div>`;
+  info.appendChild(hero);
+
+  // Divider
+  const div1=document.createElement('div');
+  div1.style.cssText='height:1px;background:rgba(255,255,255,.08);margin-bottom:14px;';
+  info.appendChild(div1);
+
+  // Message card
+  const msgCard=document.createElement('div');
+  msgCard.style.cssText=`background:${col}12;border:1px solid ${col}30;border-radius:16px;padding:14px 16px;margin-bottom:${subMessage?'10px':'14px'};`;
+  msgCard.innerHTML=`<p style="font-size:13px;line-height:1.6;color:rgba(255,255,255,.88);margin:0;">${message}</p>`;
+  info.appendChild(msgCard);
+
+  // Sub-message card
+  if (subMessage) {
+    const subCard=document.createElement('div');
+    subCard.style.cssText='background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:12px 16px;margin-bottom:14px;';
+    subCard.innerHTML=`<p style="font-size:12px;line-height:1.6;color:rgba(255,255,255,.50);margin:0;">${subMessage}</p>`;
+    info.appendChild(subCard);
+  }
+
+  // Info rows
+  if (pred!==null && cur!==undefined) {
+    const delta=pred-cur;
+    const deltaFmt=(delta>=0?'+':'')+(isMmol()?delta.toFixed(dp):Math.round(delta));
+    const curFmt=fmtVal(cur);
+    const rowData=[
+      {label:'Current glucose',     value:`${curFmt} ${unitLabel()}`},
+      {label:'Estimated in 30 min', value:`${predFmt} ${unitLabel()}`},
+      {label:'Projected change',    value:`${deltaFmt} ${unitLabel()}`},
+    ];
+    rowData.forEach(({label,value})=>{
+      const row=document.createElement('div'); row.className='info-row';
+      row.innerHTML=`<span class="info-label">${label}</span><span class="info-value">${value}</span>`;
+      info.appendChild(row);
+    });
+  }
+
+  // Disclaimer
+  const disc=document.createElement('div');
+  disc.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);';
+  disc.innerHTML='<p style="font-size:10px;line-height:1.5;color:rgba(255,255,255,.25);margin:0;text-align:center;">This is an estimate based on recent trends, not a medical reading. Always follow your personal care plan.</p>';
+  info.appendChild(disc);
+
+  openPopup();
+}
+
+async function openSensorPopup() {
+  const s=getSensorStatus();
+  document.getElementById('popup-reading-row').style.display='none';
+  document.getElementById('popup-seg').style.display='none';
+  document.getElementById('popup-seg').innerHTML='';
+  document.getElementById('popup-graph-wrap').style.display='none';
+  document.getElementById('popup-graph-wrap').innerHTML='';
+  document.getElementById('popup-title').textContent='Sensor Life';
+
+  const info=document.getElementById('popup-info-rows');
+  info.innerHTML='';
+
+  if (!s) {
+    info.innerHTML='<p style="color:rgba(255,255,255,.4);font-size:14px;text-align:center;padding:16px 0;">Sensor life tracking is not configured.<br><span style="font-size:12px;opacity:.6;">Enable it in Settings and set your sensor start date.</span></p>';
+    openPopup(); return;
+  }
+
+  const {daysLeft,hoursLeft,minutesLeft,hoursOverdue,pct,dur} = s;
+  const isExpired = hoursOverdue>0;
+  const isUrgent  = !isExpired && daysLeft<=1;
+  const col = isExpired ? C.sensorExpiredColor : isUrgent ? C.sensorUrgentColor : C.sensorNormalColor;
+  const CIRC = 2*Math.PI*34;
+
+  let statusText, statusSub, statusBadge;
+  if (isExpired)      { statusText=`${hoursOverdue}h over`; statusSub='Replace sensor';       statusBadge='Expired';      }
+  else if (daysLeft===0){ statusText=`${hoursLeft}h`;       statusSub='Less than a day left'; statusBadge='Replace Soon'; }
+  else if (daysLeft===1){ statusText='1 day';               statusSub=`${hoursLeft}h remaining`;statusBadge='Replace Soon';}
+  else                  { statusText=`${daysLeft} days`;    statusSub=`${hoursLeft}h remaining`;statusBadge='Active';     }
+
+  const startDate=new Date(C.sensorStart);
+  const endDate  =new Date(startDate.getTime()+dur*86400000);
+
+  // Hero row: text left, ring right
+  const hero=document.createElement('div');
+  hero.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  hero.innerHTML=`
+    <div>
+      <div style="font-size:34px;font-weight:700;letter-spacing:-1px;color:${col};line-height:1;">${statusText}</div>
+      <div style="margin-top:4px;font-size:12px;color:rgba(255,255,255,.4);font-weight:500;">${statusSub}</div>
+      <div style="margin-top:6px;">
+        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;background:${col}22;color:${col};border:1px solid ${col}44;">${statusBadge}</span>
+      </div>
+    </div>
+    <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+      <svg viewBox="0 0 88 88" width="72" height="72" style="position:absolute;top:0;left:0;">
+        <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5"/>
+        <circle cx="44" cy="44" r="34" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"
+          style="stroke-dasharray:${CIRC};stroke-dashoffset:${(CIRC*(1-pct)).toFixed(2)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        ${isExpired
+          ? `<span style="font-size:11px;font-weight:700;color:${col};line-height:1;text-align:center;padding:4px;">${hoursOverdue}h<br><span style="font-size:7px;opacity:.7;letter-spacing:.04em;text-transform:uppercase;">over</span></span>`
+          : daysLeft===0
+            ? `<span style="font-size:13px;font-weight:700;color:${col};line-height:1;">${hoursLeft}h</span><span style="font-size:8px;font-weight:600;color:${col};opacity:.7;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;">left</span>`
+            : `<span style="font-size:15px;font-weight:700;color:${col};line-height:1;">${daysLeft}</span><span style="font-size:8px;font-weight:600;color:${col};opacity:.7;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;">days</span>`}
+      </div>
+    </div>`;
+  info.appendChild(hero);
+
+  // Divider
+  const div1=document.createElement('div');
+  div1.style.cssText='height:1px;background:rgba(255,255,255,.08);margin-bottom:4px;';
+  info.appendChild(div1);
+
+  // Info rows
+  const rows=[
+    {label:'Applied',  value:fmtDateFull(startDate)},
+    {label:'Expires',  value:fmtDateFull(endDate)},
+    {label:'Duration', value:`${dur} days`},
+  ];
+  if (isExpired) {
+    rows.push({label:'Overdue by', value:`${hoursOverdue} hour${hoursOverdue!==1?'s':''}`, valueColor:col});
+  } else if (daysLeft===0) {
+    rows.push({label:'Time remaining', value:`${hoursLeft}h ${minutesLeft}m`});
+  } else if (daysLeft!==null) {
+    rows.push({label:'Time remaining', value:`${daysLeft} day${daysLeft!==1?'s':''}, ${hoursLeft}h ${minutesLeft}m`});
+  }
+  rows.forEach(({label,value,valueColor})=>{
+    const row=document.createElement('div'); row.className='info-row';
+    const vstyle=valueColor?` style="color:${valueColor};font-weight:700;"`:' ';
+    row.innerHTML=`<span class="info-label">${label}</span><span class="info-value"${vstyle}>${value}</span>`;
+    info.appendChild(row);
+  });
+
+  openPopup();
+}
+
+// ════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════
+function openSettings()  { populateSettings(); document.getElementById('settings-overlay').classList.add('open'); document.body.style.overflow='hidden'; }
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); document.body.style.overflow=''; }
+function toggleSensorRows(show) {
+  document.getElementById('sensor-start-row').style.display=show?'':'none';
+  document.getElementById('sensor-dur-row').style.display=show?'':'none';
+}
+
+function segPick(id, activeVal, onChange) {
+  document.querySelectorAll(`#${id} .sp-btn`).forEach(b=>{
+    b.classList.toggle('active', b.dataset.v===String(activeVal));
+    b.onclick=()=>{
+      document.querySelectorAll(`#${id} .sp-btn`).forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      if (onChange) onChange(b.dataset.v);
+    };
+  });
+}
+
+
+function buildThresholdGroup(unit) {
+  const isMm=(unit||C.unit)==='mmol';
+  const note=document.getElementById('thresh-note');
+  if (note) note.textContent=`Values in ${isMm?'mmol/L':'mg/dL'} — matching your unit setting above.`;
+  const g=document.getElementById('threshold-group'); g.innerHTML='';
+
+  const fields=isMm
+    ? [{key:'lowThreshold', label:'Low', color:'#FF3B30', min:2,  max:7,   step:0.1},
+       {key:'highThreshold',label:'High',color:'#FF9500', min:6,  max:22,  step:0.1}]
+    : [{key:'lowThreshold', label:'Low', color:'#FF3B30', min:36, max:126, step:1},
+       {key:'highThreshold',label:'High',color:'#FF9500', min:108,max:360, step:1}];
+
+  fields.forEach(f=>{
+    const cur=parseFloat(C[f.key]);
+    const row=document.createElement('div'); row.className='slider-row';
+    row.innerHTML=`<div class="slider-top">
+      <div class="slider-label"><div class="s-dot" style="background:${f.color}"></div><span>${f.label}</span></div>
+      <span class="slider-val" id="sv-${f.key}" style="color:${f.color}">${isMm?cur.toFixed(1):Math.round(cur)}</span>
+    </div>
+    <input type="range" id="sl-${f.key}" min="${f.min}" max="${f.max}" step="${f.step}" value="${cur}" style="accent-color:${f.color}">`;
+    row.querySelector(`#sl-${f.key}`).addEventListener('input',e=>{
+      const v=parseFloat(e.target.value);
+      document.getElementById(`sv-${f.key}`).textContent=isMm?v.toFixed(1):Math.round(v);
+    });
+    g.appendChild(row);
+  });
+}
+
+function populateSettings() {
+  document.getElementById('s-url').value=C.haUrl;
+  document.getElementById('s-token').value=C.token;
+  document.getElementById('s-glucose').value=C.glucoseEntity;
+  document.getElementById('s-trend').value=C.trendEntity;
+  document.getElementById('s-title').value=C.title||'Blood Sugar';
+  document.getElementById('s-show-graph').checked=C.showGraph!==false;
+  document.getElementById('s-show-sensor').checked=C.showSensor;
+  document.getElementById('s-sensor-start').value=C.sensorStart;
+  document.getElementById('s-sensor-dur').value=C.sensorDuration;
+  toggleSensorRows(C.showSensor);
+
+  segPick('sp-unit', C.unit, unit=>{ buildThresholdGroup(unit); });
+  segPick('sp-dp', C.decimalPlaces??1, null);
+  segPick('sp-gh', C.graphHours, null);
+  buildThresholdGroup(C.unit);
+}
+
+function saveSettings() {
+  try {
+    const url   = document.getElementById('s-url').value.trim();
+    const token = document.getElementById('s-token').value.trim();
+    const entity= document.getElementById('s-glucose').value.trim();
+
+    // Basic validation with clear feedback
+    if (!url)    { showToast('⚠️ Please enter your Home Assistant URL', 'err'); return; }
+    if (!token)  { showToast('⚠️ Please enter your Access Token', 'err'); return; }
+    if (!entity) { showToast('⚠️ Please enter your Glucose Entity ID', 'err'); return; }
+    if (!url.startsWith('http')) { showToast('⚠️ URL must start with http:// or https://', 'err'); return; }
+
+    const unit = document.querySelector('#sp-unit .sp-btn.active')?.dataset.v || 'mmol';
+    const dp   = parseInt(document.querySelector('#sp-dp .sp-btn.active')?.dataset.v ?? '1');
+    const gh   = parseInt(document.querySelector('#sp-gh .sp-btn.active')?.dataset.v  || '3');
+
+    const readSlider = key => {
+      const el = document.getElementById('sl-'+key);
+      if (!el || !el.value) return C[key];
+      return parseFloat(el.value);
+    };
+
+    C = {...C,
+      haUrl: url, token, glucoseEntity: entity,
+      trendEntity: document.getElementById('s-trend').value.trim(),
+      unit, decimalPlaces: dp, graphHours: gh,
+      title: document.getElementById('s-title').value.trim() || 'Blood Sugar',
+      showGraph: document.getElementById('s-show-graph').checked,
+      lowThreshold:  readSlider('lowThreshold'),
+      highThreshold: readSlider('highThreshold'),
+      showSensor:     document.getElementById('s-show-sensor').checked,
+      sensorStart:    document.getElementById('s-sensor-start').value,
+      sensorDuration: parseInt(document.getElementById('s-sensor-dur').value) || 10,
+    };
+
+    saveC();
+    predCache = {val:null, ts:0};
+    document.getElementById('topbar-title').textContent = C.title;
+    closeSettings();
+    initConnection();
+
+  } catch(err) {
+    console.error('saveSettings error:', err);
+    showToast('❌ Error saving settings: ' + err.message, 'err', 6000);
+  }
+}
+
+// ════════════════════════════════════════════════
+// SHOW / HIDE DASHBOARD
+// ════════════════════════════════════════════════
+function showDashboard() {
+  document.getElementById('setup-card').classList.remove('show');
+  document.getElementById('main-card').style.display='';
+}
+function showSetup() {
+  document.getElementById('setup-card').classList.add('show');
+  document.getElementById('main-card').style.display='none';
+  document.getElementById('stats-bar').style.display='none';
+  document.getElementById('readings-card').style.display='none';
+}
+
+// ════════════════════════════════════════════════
+// REFRESH + POLLING
+// ════════════════════════════════════════════════
+async function manualRefresh() {
+  const btn=document.getElementById('refresh-btn');
+  btn.style.transform='rotate(360deg)'; btn.style.transition='transform .5s';
+  setTimeout(()=>{ btn.style.transform=''; btn.style.transition=''; },600);
+  await fetchCurrentState();
+  await fetchHistory();
+}
+
+function startPoll() {
+  clearInterval(pollTimer);
+  clearInterval(historyTimer);
+  clearInterval(timeAgoTimer);
+  // State poll every 60s
+  pollTimer=setInterval(()=>fetchCurrentState(), 60000);
+  // History refresh every 5 minutes — keeps graph & readings list fresh
+  historyTimer=setInterval(()=>fetchHistory(), 5*60000);
+  // Time-ago label ticks every 30s without a full re-render
+  timeAgoTimer=setInterval(()=>{
+    const r=readings[0]; if (!r) return;
+    const mins=Math.floor((Date.now()-r.ts)/60000);
+    const ta=document.getElementById('dg-time-ago');
+    if (ta) { ta.textContent=fmtTimeAgo(r.ts); ta.style.color=mins>15?C.highColor:'rgba(255,255,255,.38)'; }
+  }, 30000);
+}
+
+async function initConnection() {
+  if (!C.haUrl||!C.token||!C.glucoseEntity) { showSetup(); return; }
+  showDashboard();
+  connDot('connecting');
+
+  // Quick connectivity test — gives immediate feedback before heavy data fetch
+  try {
+    const testRes = await haFetch('/api/');
+    if (testRes.status === 401 || testRes.status === 403) {
+      connDot('err');
+      showToast('❌ Invalid access token — check Settings', 'err', 6000);
+      showSetup(); return;
+    }
+    if (!testRes.ok) {
+      connDot('err');
+      showToast(`❌ Home Assistant error: HTTP ${testRes.status}`, 'err', 6000);
+      showSetup(); return;
+    }
+  } catch(e) {
+    connDot('err');
+    const isHttps = C.haUrl.startsWith('https://');
+    const hint = isHttps ? ' — try http:// on a local network' : ' — check your HA URL';
+    showToast('❌ Cannot reach Home Assistant' + hint, 'err', 7000);
+    showSetup(); return;
+  }
+
+  showToast('✓ Connected', 'ok', 2500);
+  await fetchHistory(Math.max(C.graphHours, 3));
+  await fetchCurrentState();
+  fetchTrendTimeline(); // fire-and-forget — updates readings list when complete
+  connectWS();
+  startPoll();
+  if (readings.length) updateUI();
+}
+
+// ════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  loadC(); loadR();
+  document.getElementById('topbar-title').textContent=C.title||'Blood Sugar';
+  if (readings.length && C.haUrl) {
+    showDashboard();
+    updateUI();
+  }
+  initConnection();
+  window.addEventListener('resize',()=>{ if(readings.length) drawMainGraph(); });
+  let hiddenAt=null;
+  document.addEventListener('visibilitychange',()=>{
+    if (document.hidden) {
+      hiddenAt=Date.now();
+    } else if (C.haUrl) {
+      const awayMs=hiddenAt?Date.now()-hiddenAt:0;
+      hiddenAt=null;
+      fetchCurrentState();
+      // If away for more than 2 minutes, also refresh history so the graph catches up
+      if (awayMs>2*60000) fetchHistory();
+      // Reconnect WebSocket if it dropped while hidden
+      if (!ws||ws.readyState>1) connectWS();
+      // Restart timers so intervals count from now, not from before the user left
+      if (awayMs>30000) startPoll();
+    }
+  });
+});
+</script>
+</body>
+</html>
