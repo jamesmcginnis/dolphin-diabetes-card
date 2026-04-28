@@ -50,6 +50,34 @@ The sensor pill has three distinct states:
 - **Last Day** — one day or less remaining; shown in your configured urgent colour
 - **Expired** — sensor life has passed; shown in your configured expired colour with hours overdue displayed
 
+## Progressive Web App
+
+This repository also includes a standalone Progressive Web App (`index.html`) that you can install on your phone's home screen for a native-feeling glucose monitor, independent of the HA dashboard.
+
+The PWA connects directly to your Home Assistant instance and displays the glucose ring, trend arrow, forecast pill, sensor life pill, recent readings list, 3-hour average, time in range percentage, and a readings count. It uses WebSockets for live updates and falls back to polling every 60 seconds.
+
+### Hosting via Nabu Casa
+
+Copy `index.html`, `manifest.json`, and `icon-192.png` into your Home Assistant `www` folder (`/config/www/`). The PWA will then be available at:
+
+```
+https://<your-nabu-casa-id>.ui.nabu.casa/local/index.html
+```
+
+Open that URL in Safari or Chrome on your phone and use **Add to Home Screen** to install it as a standalone app.
+
+### Setup
+
+On first launch the app shows a setup screen. Tap **Open Settings** and enter:
+
+- **HA URL** — your Nabu Casa or local Home Assistant URL
+- **Access Token** — a Long-Lived Access Token from your HA profile (**Profile → Long-Lived Access Tokens**)
+- **Glucose Entity** — e.g. `sensor.dexcom_blood_glucose`
+- **Trend Entity** — optional, e.g. `sensor.dexcom_trend`
+- Unit, decimal places, graph range, thresholds, and sensor life settings
+
+All settings are saved in your browser and persist between sessions.
+
 ## Configuration
 
 Everything is configurable through the built-in visual editor — no YAML needed. Options include sensor entity pickers with smart keyword scoring and live search, unit toggle (mmol/L or mg/dL), alert thresholds, show/hide graph with time range selector, sensor life countdown with start date and duration, and full colour control across rings, graph, sensor pill (including separate active, last-day, and expired colours), forecast pill, and card background.
