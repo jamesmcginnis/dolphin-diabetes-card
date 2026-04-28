@@ -28,6 +28,7 @@ A sleek [Home Assistant](https://www.home-assistant.io/) dashboard card for moni
 - **Stale reading warning** — timestamp in the header turns amber when data is older than 15 minutes
 - **Smart entity picker** — the visual editor scores and surfaces your most likely glucose and trend sensors at the top, with a live search filter across all sensors
 - **Full visual editor** — every option configurable from the UI, no YAML required
+- **Progressive Web App** — a standalone mobile app (`index.html`) you can install on your phone home screen for a native-feeling glucose monitor, independent of the HA dashboard
 
 ---
 
@@ -59,7 +60,83 @@ Then:
 
 ---
 
-## 🛠️ Configuration
+## 📱 Progressive Web App (PWA)
+
+In addition to the dashboard card, this repository includes a standalone Progressive Web App — `index.html` — that you can install on your phone's home screen for a native-feeling glucose monitor.
+
+The PWA connects directly to your Home Assistant instance via its REST API and WebSocket, and displays the same glucose ring, trend arrow, 30-minute forecast, sensor life countdown, recent readings list, and stats bar as the dashboard card. It works entirely in your browser with no additional server or app store required.
+
+### What the PWA shows
+
+- **Glucose ring** — animated ring with current reading, colour-coded to your thresholds
+- **Trend arrow** — current direction with label; tap for recent trend history
+- **30-min forecast pill** — weighted linear regression estimate, colour-coded to your thresholds
+- **Sensor life pill** — optional countdown in Active / Last Day / Expired states
+- **Stats bar** — 3-hour average, time in range percentage, and total readings count
+- **Recent readings list** — scrollable list of recent readings with timestamps and status badges
+- **Live WebSocket updates** — readings update in real time without manual refresh
+- **Stale data warning** — timestamp turns amber when data is more than 15 minutes old
+
+### Hosting the PWA via Nabu Casa (Recommended)
+
+[Nabu Casa](https://www.nabucasa.com/) provides a secure remote URL for your Home Assistant instance. The simplest way to host the PWA is to place it in your Home Assistant `www` folder, which makes it available at your Nabu Casa URL — no separate hosting required.
+
+1. **Download** `index.html`, `manifest.json`, and `icon-192.png` from the [latest release](../../releases/latest)
+2. **Copy all three files** into your Home Assistant `www` folder:
+   ```
+   /config/www/index.html
+   /config/www/manifest.json
+   /config/www/icon-192.png
+   ```
+3. The PWA will now be accessible at:
+   ```
+   https://<your-nabu-casa-id>.ui.nabu.casa/local/index.html
+   ```
+   Replace `<your-nabu-casa-id>` with your own Nabu Casa subdomain, which you can find in **Settings → Home Assistant Cloud**.
+
+4. **Open that URL on your phone** and follow the steps below to add it to your home screen.
+
+> **Tip:** If you are on your home network, you can also access the PWA locally at `http://homeassistant.local:8123/local/index.html`.
+
+### Adding to Your Home Screen
+
+#### iPhone / iPad (Safari)
+1. Open the PWA URL in **Safari**
+2. Tap the **Share** button (the box with an arrow pointing up)
+3. Scroll down and tap **Add to Home Screen**
+4. Give it a name (e.g. *Dolphin Diabetes*) and tap **Add**
+
+#### Android (Chrome)
+1. Open the PWA URL in **Chrome**
+2. Tap the **three-dot menu** (⋮) in the top-right corner
+3. Tap **Add to Home screen**
+4. Confirm by tapping **Add**
+
+Once installed, the app opens full-screen without any browser chrome, just like a native app.
+
+### Configuring the PWA
+
+The first time you open the PWA you will see a setup screen. Tap **Open Settings** and fill in:
+
+| Setting | Description |
+|---|---|
+| **HA URL** | Your Home Assistant URL — either your Nabu Casa URL (`https://<id>.ui.nabu.casa`) or your local address (`http://homeassistant.local:8123`) |
+| **Access Token** | A Long-Lived Access Token from your HA profile — go to your **Profile → Long-Lived Access Tokens → Create Token** |
+| **Glucose Entity** | Entity ID of your Dexcom glucose sensor, e.g. `sensor.dexcom_blood_glucose` |
+| **Trend Entity** | Optional — entity ID of your Dexcom trend sensor, e.g. `sensor.dexcom_trend` |
+| **Unit** | `mmol/L` or `mg/dL` |
+| **Decimal Places** | Display precision for mmol/L readings (0, 1, or 2) |
+| **Default Graph Range** | How many hours of history to show by default (1h, 3h, 6h, 12h, or 24h) |
+| **Low / High Thresholds** | Your personal glucose target range |
+| **Sensor Life** | Optional — toggle on and enter the date you applied your current sensor and its duration in days |
+
+All settings are saved locally in your browser and persist across sessions.
+
+> **Security note:** Your access token is stored in your browser's local storage on your device. Use a dedicated token for the PWA and never share the URL with others, particularly if you are using your public Nabu Casa address.
+
+---
+
+## 🛠️ Dashboard Card Configuration
 
 Add a new card to your dashboard, choose **Manual** and use:
 
