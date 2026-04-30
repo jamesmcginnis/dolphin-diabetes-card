@@ -803,14 +803,17 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const confirmBtn = replaceSection.querySelector('#dg-popup-replace-confirm');
     confirmBtn.addEventListener('click', () => {
+      console.log('[DolphinDiabetes] Replace Sensor button clicked');
       const dateEl = replaceSection.querySelector('#dg-popup-replace-date');
       const timeEl = replaceSection.querySelector('#dg-popup-replace-time');
       const dateVal = (dateEl && dateEl.value) ? dateEl.value : todayDate;
       const timeVal = (timeEl && timeEl.value) ? timeEl.value : todayTime;
       const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
+      console.log('[DolphinDiabetes] Saving iso:', iso);
       confirmBtn.textContent = '✓  Saved!';
       confirmBtn.disabled = true;
       setTimeout(() => {
+        console.log('[DolphinDiabetes] setTimeout fired, calling _updateConfig');
         this._updateConfig('sensor_start_date', iso);
         this._closePopup();
         this._updateCard();
