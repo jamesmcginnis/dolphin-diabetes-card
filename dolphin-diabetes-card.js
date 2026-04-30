@@ -773,6 +773,50 @@ class DolphinDiabetesCard extends HTMLElement {
       infoWrap.appendChild(row);
     });
     popup.appendChild(infoWrap);
+
+    // ── Replace Sensor section ──
+    const replaceDivider = document.createElement('div');
+    replaceDivider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-top:12px;margin-bottom:12px;';
+    popup.appendChild(replaceDivider);
+
+    const replaceLabel = document.createElement('div');
+    replaceLabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px;';
+    replaceLabel.textContent = 'Replace Sensor';
+    popup.appendChild(replaceLabel);
+
+    const now = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    const nowLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const replaceWrap = document.createElement('div');
+    replaceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+    replaceWrap.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;">New sensor start time</label>
+        <input id="popup-sensor-dt" type="datetime-local" value="${nowLocal}"
+          style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box;color-scheme:dark;outline:none;">
+      </div>
+      <button id="popup-sensor-confirm"
+        style="width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;">
+        ✓ &nbsp;Confirm New Sensor
+      </button>`;
+    popup.appendChild(replaceWrap);
+
+    replaceWrap.querySelector('#popup-sensor-confirm').addEventListener('click', () => {
+      const dtEl = replaceWrap.querySelector('#popup-sensor-dt');
+      if (!dtEl || !dtEl.value) return;
+      const iso = new Date(dtEl.value).toISOString();
+      this._updateConfig('sensor_start_date', iso);
+      const btn = replaceWrap.querySelector('#popup-sensor-confirm');
+      btn.textContent = '✓  Saved!';
+      btn.style.opacity = '0.7';
+      btn.style.cursor = 'default';
+      setTimeout(() => {
+        btn.innerHTML = '✓ &nbsp;Confirm New Sensor';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }, 2000);
+    });
   }
 
   // ── Prediction Popup ───────────────────────────────────────────────
@@ -1792,12 +1836,12 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           <div class="section-title">Sensor Life</div>
           <div class="card-block">
             <div class="input-row">
-              <div class="hint" style="margin-bottom:8px;">Set the exact date and time you applied the sensor. Press <strong>Confirm</strong> to save — this prevents accidental changes while editing other settings.</div>
-              <label style="font-size:11px;font-weight:600;color:#888;margin-bottom:4px;display:block;">Sensor applied (date &amp; time)</label>
+              <div class="hint" style="margin-bottom:8px;">Set the initial sensor start time and duration here. Once set up, you can log a replacement sensor by tapping the days-left pill on the card. Press <strong>Confirm</strong> to save.</div>
+              <label style="font-size:11px;font-weight:600;color:#888;margin-bottom:4px;display:block;">Initial sensor start time</label>
               <input type="datetime-local" id="sensor_start_datetime">
               <label style="font-size:11px;font-weight:600;color:#888;margin-top:10px;margin-bottom:4px;display:block;">Sensor lasts (days)</label>
               <input type="number" id="sensor_duration_days" min="1" max="30" step="1" value="${cfg.sensor_duration_days ?? 14}">
-              <button class="sensor-confirm-btn" id="sensor_confirm_btn">✓ &nbsp;Confirm sensor start time</button>
+              <button class="sensor-confirm-btn" id="sensor_confirm_btn">✓ &nbsp;Confirm initial sensor start time</button>
             </div>
           </div>
         </div>
@@ -1960,7 +2004,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
         this._updateConfig('sensor_start_date', iso);
         confirmBtn.classList.add('saved');
         confirmBtn.textContent = '✓  Saved!';
-        setTimeout(() => { confirmBtn.classList.remove('saved'); confirmBtn.innerHTML = '✓ &nbsp;Confirm sensor start time'; }, 2000);
+        setTimeout(() => { confirmBtn.classList.remove('saved'); confirmBtn.innerHTML = '✓ &nbsp;Confirm initial sensor start time'; }, 2000);
       });
     }
 
