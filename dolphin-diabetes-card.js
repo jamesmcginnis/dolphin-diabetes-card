@@ -774,71 +774,37 @@ class DolphinDiabetesCard extends HTMLElement {
     });
     popup.appendChild(infoWrap);
 
-    // ── Replace Sensor section ──
+    // ── Replace Sensor button — opens shadow-root overlay ──
     const replaceDivider = document.createElement('div');
     replaceDivider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-top:12px;margin-bottom:12px;';
     popup.appendChild(replaceDivider);
 
-    const replaceLabel = document.createElement('div');
-    replaceLabel.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px;';
-    replaceLabel.textContent = 'Replace Sensor';
-    popup.appendChild(replaceLabel);
+    const replaceBtn = document.createElement('button');
+    replaceBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.01em;text-align:center;`;
+    replaceBtn.textContent = '⟳  Replace Sensor';
+    popup.appendChild(replaceBtn);
 
-    const now = new Date();
-    const pad = n => n.toString().padStart(2, '0');
-    const nowLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    replaceBtn.onclick = () => {
+      // Close the info popup
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      this._popupOverlay = null;
 
-    const replaceWrap = document.createElement('div');
-    replaceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;align-items:center;';
+      // Pre-fill date/time inputs with now
+      const now = new Date();
+      const pad = n => n.toString().padStart(2, '0');
+      const dateEl = this.shadowRoot.getElementById('dg-replace-date');
+      const timeEl = this.shadowRoot.getElementById('dg-replace-time');
+      const confirmEl = this.shadowRoot.getElementById('dg-replace-confirm');
+      if (dateEl) dateEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      if (timeEl) timeEl.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      if (confirmEl) confirmEl.textContent = '✓  Confirm New Sensor';
 
-    const inputRowDiv = document.createElement('div');
-    inputRowDiv.style.cssText = 'display:flex;flex-direction:column;gap:6px;width:100%;';
+      // Update confirm button color to match pill
+      if (confirmEl) confirmEl.style.background = pillColor;
 
-    const inputLabel = document.createElement('label');
-    inputLabel.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;';
-    inputLabel.textContent = 'New sensor start time';
-    inputRowDiv.appendChild(inputLabel);
-
-    const pairDiv = document.createElement('div');
-    pairDiv.style.cssText = 'display:flex;gap:8px;width:100%;';
-
-    const inputStyle = 'flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;';
-
-    const dateEl = document.createElement('input');
-    dateEl.type = 'date';
-    dateEl.style.cssText = inputStyle;
-    dateEl.value = nowLocal.slice(0, 10);
-
-    const timeEl = document.createElement('input');
-    timeEl.type = 'time';
-    timeEl.style.cssText = inputStyle;
-    timeEl.value = nowLocal.slice(11, 16);
-
-    pairDiv.appendChild(dateEl);
-    pairDiv.appendChild(timeEl);
-    inputRowDiv.appendChild(pairDiv);
-    replaceWrap.appendChild(inputRowDiv);
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;touch-action:manipulation;`;
-    confirmBtn.innerHTML = '✓ &nbsp;Confirm New Sensor';
-    replaceWrap.appendChild(confirmBtn);
-
-    popup.appendChild(replaceWrap);
-
-    confirmBtn.onclick = () => {
-      const dateVal = dateEl.value;
-      const timeVal = timeEl.value;
-      if (!dateVal || !timeVal) return;
-      const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
-      this._updateConfig('sensor_start_date', iso);
-      confirmBtn.textContent = '✓  Saved!';
-      confirmBtn.style.opacity = '0.7';
-      confirmBtn.style.cursor = 'default';
-      setTimeout(() => {
-        if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        this._popupOverlay = null;
-      }, 1200);
+      // Show the overlay
+      const replaceOverlay = this.shadowRoot.getElementById('dg-replace-overlay');
+      if (replaceOverlay) replaceOverlay.style.display = 'flex';
     };
   }
 
@@ -1351,7 +1317,20 @@ class DolphinDiabetesCard extends HTMLElement {
           </div>
 
         </div>
-      </ha-card>`;
+      </ha-card>
+
+      <div id="dg-replace-overlay" style="display:none;position:fixed;inset:0;z-index:99999;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">
+        <div id="dg-replace-panel" style="background:#1c1c1e;border:1px solid rgba(255,255,255,0.15);border-radius:24px;padding:24px;width:100%;max-width:340px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:#fff;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:16px;text-align:center;">Replace Sensor</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;margin-bottom:8px;">New sensor start time</div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <input id="dg-replace-date" type="date" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
+            <input id="dg-replace-time" type="time" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
+          </div>
+          <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">✓  Confirm New Sensor</button>
+          <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+        </div>
+      </div>`;
 
     this._setupInteractions();
     this._updateCard();
@@ -1373,6 +1352,24 @@ class DolphinDiabetesCard extends HTMLElement {
     const pillEl = this.shadowRoot.getElementById('dg-sensor-pill');
     if (pillEl) {
       pillEl.addEventListener('click', e => { e.stopPropagation(); this._openSensorPopup(); });
+    }
+
+    // Replace overlay (lives inside shadow root so clicks are never intercepted)
+    const replaceOverlay = this.shadowRoot.getElementById('dg-replace-overlay');
+    const replaceConfirm = this.shadowRoot.getElementById('dg-replace-confirm');
+    const replaceCancel  = this.shadowRoot.getElementById('dg-replace-cancel');
+    if (replaceOverlay && replaceConfirm && replaceCancel) {
+      replaceCancel.onclick = () => { replaceOverlay.style.display = 'none'; };
+      replaceOverlay.onclick = (e) => { if (e.target === replaceOverlay) replaceOverlay.style.display = 'none'; };
+      replaceConfirm.onclick = () => {
+        const dateEl = this.shadowRoot.getElementById('dg-replace-date');
+        const timeEl = this.shadowRoot.getElementById('dg-replace-time');
+        if (!dateEl.value || !timeEl.value) return;
+        const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
+        this._updateConfig('sensor_start_date', iso);
+        replaceConfirm.textContent = '✓  Saved!';
+        setTimeout(() => { replaceOverlay.style.display = 'none'; }, 1000);
+      };
     }
 
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
