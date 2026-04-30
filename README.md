@@ -298,5 +298,5 @@ MIT License — free to use, modify, and distribute.
 ---
 
 <p align="center">
-  Made with ❤️ for My Living Wife
+  Made with ❤️ for My Loving Wife
 </p>
