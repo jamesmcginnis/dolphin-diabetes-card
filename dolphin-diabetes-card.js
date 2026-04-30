@@ -518,7 +518,7 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.appendChild(style);
     popup.appendChild(headerRow);
     overlay.appendChild(popup);
-    overlay.addEventListener('click', e => { if (e.target === overlay) this._closePopup(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && !popup.contains(e.target)) this._closePopup(); });
     document.body.appendChild(overlay);
     this._popupOverlay = overlay;
 
@@ -826,15 +826,10 @@ class DolphinDiabetesCard extends HTMLElement {
 
     popup.appendChild(replaceWrap);
 
-    let confirmed = false;
-    const doConfirm = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (confirmed) return;
+    confirmBtn.onclick = () => {
       const dateVal = dateEl.value;
       const timeVal = timeEl.value;
       if (!dateVal || !timeVal) return;
-      confirmed = true;
       const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
       this._updateConfig('sensor_start_date', iso);
       confirmBtn.textContent = '✓  Saved!';
@@ -845,8 +840,6 @@ class DolphinDiabetesCard extends HTMLElement {
         this._popupOverlay = null;
       }, 1200);
     };
-    confirmBtn.addEventListener('click', doConfirm);
-    confirmBtn.addEventListener('touchend', doConfirm);
   }
 
   // ── Prediction Popup ───────────────────────────────────────────────
