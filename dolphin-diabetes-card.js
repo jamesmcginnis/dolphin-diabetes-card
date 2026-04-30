@@ -1304,8 +1304,6 @@ class DolphinDiabetesCard extends HTMLElement {
           </div>
 
         </div>
-      </ha-card>
-
       <div id="dg-replace-panel" style="display:none;padding:20px;">
         <div style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:16px;text-align:center;">Replace Sensor</div>
         <div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;margin-bottom:8px;">New sensor start time</div>
@@ -1315,7 +1313,8 @@ class DolphinDiabetesCard extends HTMLElement {
         </div>
         <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:10px;">Cancel</button>
         <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">✓  Confirm New Sensor</button>
-      </div>`;
+      </div>
+      </ha-card>`;
 
     this._setupInteractions();
     this._updateCard();
@@ -1350,7 +1349,19 @@ class DolphinDiabetesCard extends HTMLElement {
     if (replaceConfirm) {
       replaceConfirm.addEventListener('click', (e) => {
         e.stopPropagation();
-        alert('confirm clicked');
+        const dateEl = this.shadowRoot.getElementById('dg-replace-date');
+        const timeEl = this.shadowRoot.getElementById('dg-replace-time');
+        const now = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const dateVal = (dateEl && dateEl.value) ? dateEl.value : `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+        const timeVal = (timeEl && timeEl.value) ? timeEl.value : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
+        this._updateConfig('sensor_start_date', iso);
+        replaceConfirm.textContent = '✓  Saved!';
+        setTimeout(() => {
+          hideReplace();
+          this._updateCard();
+        }, 1000);
       });
     }
     if (replaceCancel) {
