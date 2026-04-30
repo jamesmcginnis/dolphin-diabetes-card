@@ -453,8 +453,7 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.appendChild(graphInner);
     popup.appendChild(infoWrap);
     overlay.appendChild(popup);
-    const haRoot2 = document.querySelector('home-assistant') || document.body;
-    haRoot2.appendChild(overlay);
+    document.body.appendChild(overlay);
 
     overlay.addEventListener('click', e => { if (e.target === overlay) this._closePopup(); });
     this._popupOverlay = overlay;
@@ -529,8 +528,7 @@ class DolphinDiabetesCard extends HTMLElement {
     overlay.addEventListener('click', e => { if (e.target === overlay) this._closePopup(); });
     // Append to the HA root element so clicks aren't swallowed by HA's own
     // event trapping layers that sit above document.body appended elements.
-    const haRoot = document.querySelector('home-assistant') || document.body;
-    haRoot.appendChild(overlay);
+    document.body.appendChild(overlay);
     this._popupOverlay = overlay;
 
     return { popup, overlay };
