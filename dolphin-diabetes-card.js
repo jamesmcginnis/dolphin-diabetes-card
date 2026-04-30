@@ -51,6 +51,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_urgent_color: '#FF9500',
       sensor_pill_expired_color: '#FF3B30',
       show_a1c: true,
+      a1c_display: 'percentage',
     };
   }
 
@@ -81,6 +82,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_urgent_color: '#FF9500',
       sensor_pill_expired_color: '#FF3B30',
       show_a1c: true,
+      a1c_display: 'percentage',
       ...config
     };
     if (this.shadowRoot.innerHTML) {
@@ -1491,6 +1493,71 @@ class DolphinDiabetesCard extends HTMLElement {
     this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId } }));
   }
 
+  // ── Config persistence ────────────────────────────────────────────
+
+  _updateConfig(key, value) {
+    if (!this._config || !this._hass) return;
+    this._config = { ...this._config, [key]: value };
+    this._saveConfigToLovelace(key, value);
+  }
+
+  async _saveConfigToLovelace(key, value) {
+    const log = msg => console.log('[DolphinDiabetes]', msg);
+    try {
+      const hass = this._hass;
+      log('1. saving key=' + key + ' value=' + value);
+
+      // Walk shadow DOM boundaries to find the lovelace element
+      let lovelaceEl = null;
+      let el = this;
+      while (el) {
+        if (el.lovelace) { lovelaceEl = el; break; }
+        el = el.parentNode || (el.getRootNode && el.getRootNode().host) || null;
+      }
+      const urlPath = lovelaceEl?.lovelace?.urlPath ?? null;
+      log('2. urlPath=' + JSON.stringify(urlPath));
+
+      const rawConfig = await hass.callWS({ type: 'lovelace/config', url_path: urlPath });
+      log('3. fetched config, views=' + (rawConfig?.views?.length ?? 'none'));
+
+      const patched = JSON.parse(JSON.stringify(rawConfig));
+      let found = false;
+
+      const patchCard = cardCfg => {
+        if (found) return cardCfg;
+        log('   checking type=' + cardCfg.type + ' glucose=' + cardCfg.glucose_entity);
+        if (
+          cardCfg.type === 'custom:dolphin-diabetes-card' &&
+          cardCfg.glucose_entity === this._config.glucose_entity
+        ) {
+          found = true;
+          log('4. matched — patching key=' + key);
+          // Only patch the single changed key so we never overwrite
+          // other settings the editor may have changed independently.
+          return { ...cardCfg, [key]: value };
+        }
+        return cardCfg;
+      };
+
+      for (const view of (patched.views || [])) {
+        if (view.cards) view.cards = view.cards.map(patchCard);
+        for (const section of (view.sections || [])) {
+          if (section.cards) section.cards = section.cards.map(patchCard);
+        }
+      }
+
+      if (!found) {
+        log('ERROR: card not found in lovelace config');
+        return;
+      }
+
+      await hass.callWS({ type: 'lovelace/config/save', url_path: urlPath, config: patched });
+      log('5. DONE — saved successfully');
+    } catch (err) {
+      console.warn('[DolphinDiabetes] Save failed:', err);
+    }
+  }
+
   // ── Update ─────────────────────────────────────────────────────────
 
   _updateCard() {
@@ -1627,15 +1694,31 @@ class DolphinDiabetesCard extends HTMLElement {
         const now2      = Date.now();
         const cacheAge2 = this._a1cCache ? now2 - this._a1cCache.timestamp : Infinity;
         const applyA1cUI = result => {
-          const val2   = result?.value ?? null;
-          const color  = val2 === null ? 'rgba(255,255,255,0.4)'
-                       : val2 >= 7.0  ? (this._config.high_color  || '#FF9500')
-                       : (this._config.normal_color || '#34C759');
-          if (a1cValEl) { a1cValEl.textContent = val2 !== null ? val2 + '%' : '--'; a1cValEl.style.color = color; }
+          const val2    = result?.value ?? null;
+          const avgMgdl = result?.avgMgdl ?? null;
+          const showAvg = this._config.a1c_display === 'average';
+          const color   = val2 === null ? 'rgba(255,255,255,0.4)'
+                        : val2 >= 7.0  ? (this._config.high_color  || '#FF9500')
+                        : (this._config.normal_color || '#34C759');
+          let displayVal, displayLbl;
+          if (showAvg) {
+            if (avgMgdl !== null) {
+              displayVal = this._config.unit === 'mgdl'
+                ? `${avgMgdl}`
+                : `${(avgMgdl / 18.0182).toFixed(1)}`;
+            } else {
+              displayVal = '--';
+            }
+            displayLbl = `avg ${this._unitLabel()}`;
+          } else {
+            displayVal = val2 !== null ? val2 + '%' : '--';
+            displayLbl = 'est. A1C';
+          }
+          if (a1cValEl) { a1cValEl.textContent = displayVal; a1cValEl.style.color = color; }
           const lbl = a1cPillEl.querySelector('.dg-sub-pill-label');
+          if (lbl) { lbl.textContent = displayLbl; lbl.style.color = color; }
           a1cPillEl.style.background  = val2 !== null ? color + '1a' : 'rgba(255,255,255,0.06)';
           a1cPillEl.style.borderColor = val2 !== null ? color + '55' : 'rgba(255,255,255,0.10)';
-          if (lbl) lbl.style.color = color;
         };
         if (this._a1cCache && cacheAge2 < 1800000) {
           applyA1cUI(this._a1cCache);
@@ -1732,6 +1815,9 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     setChk('show_title',       cfg.show_title       !== false);
     setChk('show_sensor_life', cfg.show_sensor_life === true);
     setChk('show_a1c',         cfg.show_a1c         !== false);
+    root.querySelectorAll('input[name="a1c_display"]').forEach(r => { r.checked = r.value === (cfg.a1c_display || 'percentage'); });
+    const a1cDisplaySection = root.getElementById('a1c_display_section');
+    if (a1cDisplaySection) a1cDisplaySection.style.display = cfg.show_a1c !== false ? '' : 'none';
 
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = r.value === (cfg.unit || 'mmol'); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = parseInt(r.value) === parseInt(cfg.graph_hours || 3); });
@@ -1999,6 +2085,16 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
+        <div id="a1c_display_section" style="${cfg.show_a1c !== false ? '' : 'display:none'}">
+          <div class="section-title">A1C Pill Display</div>
+          <div class="card-block" style="padding:12px;">
+            <div class="segmented">
+              <input type="radio" name="a1c_display" id="a1c_pct" value="percentage" ${(cfg.a1c_display || 'percentage') === 'percentage' ? 'checked' : ''}><label for="a1c_pct">Est. A1C %</label>
+              <input type="radio" name="a1c_display" id="a1c_avg" value="average"    ${cfg.a1c_display === 'average' ? 'checked' : ''}><label for="a1c_avg">Avg Glucose</label>
+            </div>
+          </div>
+        </div>
+
         <div id="sensor_life_section" style="${cfg.show_sensor_life ? '' : 'display:none'}">
           <div class="section-title">Sensor Life</div>
           <div class="card-block">
@@ -2148,7 +2244,20 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       const s = root.getElementById('graph_hours_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
     };
-    get('show_a1c').onchange = e => this._updateConfig('show_a1c', e.target.checked);
+    root.querySelectorAll('input[name="a1c_display"]').forEach(r => {
+      r.onchange = () => {
+        this._updateConfig('a1c_display', r.value);
+        // Invalidate cache so pill re-renders immediately with new display mode
+        this._a1cCache = null;
+        this._updateCard();
+      };
+    });
+
+    get('show_a1c').onchange = e => {
+      this._updateConfig('show_a1c', e.target.checked);
+      const s = root.getElementById('a1c_display_section');
+      if (s) s.style.display = e.target.checked ? '' : 'none';
+    };
 
     get('show_sensor_life').onchange = e => {
       this._updateConfig('show_sensor_life', e.target.checked);
