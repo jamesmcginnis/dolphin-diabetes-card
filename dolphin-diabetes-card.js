@@ -1349,7 +1349,6 @@ class DolphinDiabetesCard extends HTMLElement {
     if (replaceConfirm) {
       replaceConfirm.addEventListener('click', (e) => {
         e.stopPropagation();
-        replaceConfirm.textContent = 'CLICKED';
         const dateEl = this.shadowRoot.getElementById('dg-replace-date');
         const timeEl = this.shadowRoot.getElementById('dg-replace-time');
         const now = new Date();
