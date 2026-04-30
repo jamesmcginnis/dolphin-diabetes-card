@@ -979,12 +979,12 @@ class DolphinDiabetesCard extends HTMLElement {
     };
 
     const getA1cMessage = v => {
-      if (v === null) return 'Not enough glucose history to calculate yet. A1C estimation needs at least a few days of readings.';
-      if (v >= 9.0)  return 'This estimate suggests glucose levels have been running quite high on average. It's worth speaking with your healthcare team about your management plan.';
-      if (v >= 7.0)  return 'This estimate suggests there may be room to bring average glucose levels down a little. Your healthcare team can help you review your targets.';
-      if (v >= 6.5)  return 'This estimate sits in the high-normal range. Regular check-ins with your healthcare team are a good idea.';
-      if (v >= 5.7)  return 'This estimate sits in the pre-diabetic range. Staying consistent with healthy habits and monitoring is important.';
-      return 'This estimate suggests your average glucose has been in a healthy range. Keep it up!';
+      if (v === null) return `Not enough glucose history to calculate yet. A1C estimation needs at least a few days of readings.`;
+      if (v >= 9.0)  return `This estimate suggests glucose levels have been running quite high on average. It's worth speaking with your healthcare team about your management plan.`;
+      if (v >= 7.0)  return `This estimate suggests there may be room to bring average glucose levels down a little. Your healthcare team can help you review your targets.`;
+      if (v >= 6.5)  return `This estimate sits in the high-normal range. Regular check-ins with your healthcare team are a good idea.`;
+      if (v >= 5.7)  return `This estimate sits in the pre-diabetic range. Staying consistent with healthy habits and monitoring is important.`;
+      return `This estimate suggests your average glucose has been in a healthy range. Keep it up!`;
     };
 
     const val     = cache?.value ?? null;
@@ -1666,7 +1666,6 @@ class DolphinDiabetesCard extends HTMLElement {
     } else if (predictPill) {
       predictPill.style.display = 'none';
     }
-  }
 
     // ── Estimated A1C pill ──────────────────────────────────────────────
     const a1cPillEl = root.getElementById('dg-a1c-pill');
@@ -1674,20 +1673,19 @@ class DolphinDiabetesCard extends HTMLElement {
     if (a1cPillEl) {
       if (this._config.show_a1c && this._config.glucose_entity) {
         a1cPillEl.style.display = 'flex';
-        const now2     = Date.now();
+        const now2      = Date.now();
         const cacheAge2 = this._a1cCache ? now2 - this._a1cCache.timestamp : Infinity;
         const applyA1cUI = result => {
-          const val    = result?.value ?? null;
-          const color  = val === null ? 'rgba(255,255,255,0.4)'
-                       : val >= 7.0  ? (this._config.high_color  || '#FF9500')
+          const val2   = result?.value ?? null;
+          const color  = val2 === null ? 'rgba(255,255,255,0.4)'
+                       : val2 >= 7.0  ? (this._config.high_color  || '#FF9500')
                        : (this._config.normal_color || '#34C759');
-          if (a1cValEl) { a1cValEl.textContent = val !== null ? val + '%' : '--'; a1cValEl.style.color = color; }
+          if (a1cValEl) { a1cValEl.textContent = val2 !== null ? val2 + '%' : '--'; a1cValEl.style.color = color; }
           const lbl = a1cPillEl.querySelector('.dg-sub-pill-label');
-          a1cPillEl.style.background  = val !== null ? color + '1a' : 'rgba(255,255,255,0.06)';
-          a1cPillEl.style.borderColor = val !== null ? color + '55' : 'rgba(255,255,255,0.10)';
+          a1cPillEl.style.background  = val2 !== null ? color + '1a' : 'rgba(255,255,255,0.06)';
+          a1cPillEl.style.borderColor = val2 !== null ? color + '55' : 'rgba(255,255,255,0.10)';
           if (lbl) lbl.style.color = color;
         };
-        // Cache for 30 minutes — A1C barely changes minute to minute
         if (this._a1cCache && cacheAge2 < 1800000) {
           applyA1cUI(this._a1cCache);
         } else if (!this._a1cFetching) {
