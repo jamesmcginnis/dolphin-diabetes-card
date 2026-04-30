@@ -1417,6 +1417,22 @@ class DolphinDiabetesCard extends HTMLElement {
     this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId } }));
   }
 
+  // ── Config persistence ────────────────────────────────────────────
+  // Called from the Replace Sensor panel to write sensor_start_date back
+  // to the lovelace config (YAML / storage).
+  _updateConfig(key, value) {
+    if (!this._config || !this._hass) return;
+    const newConfig = { ...this._config, [key]: value };
+    this._config = newConfig;
+    // Fire config-changed so HA lovelace can persist the update.
+    // This is the same mechanism the card editor uses.
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   // ── Update ─────────────────────────────────────────────────────────
 
   _updateCard() {
