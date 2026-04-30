@@ -789,23 +789,28 @@ class DolphinDiabetesCard extends HTMLElement {
     const nowLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
     const replaceWrap = document.createElement('div');
-    replaceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+    replaceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;align-items:center;';
     replaceWrap.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <label style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;">New sensor start time</label>
-        <input id="popup-sensor-dt" type="datetime-local" value="${nowLocal}"
-          style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;width:100%;box-sizing:border-box;color-scheme:dark;outline:none;">
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;">New sensor start time</label>
+        <div style="display:flex;gap:8px;width:100%;">
+          <input id="popup-sensor-date" type="date" value="${nowLocal.slice(0,10)}"
+            style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
+          <input id="popup-sensor-time" type="time" value="${nowLocal.slice(11,16)}"
+            style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
+        </div>
       </div>
       <button id="popup-sensor-confirm"
-        style="width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;">
+        style="width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;">
         ✓ &nbsp;Confirm New Sensor
       </button>`;
     popup.appendChild(replaceWrap);
 
     replaceWrap.querySelector('#popup-sensor-confirm').addEventListener('click', () => {
-      const dtEl = replaceWrap.querySelector('#popup-sensor-dt');
-      if (!dtEl || !dtEl.value) return;
-      const iso = new Date(dtEl.value).toISOString();
+      const dateEl = replaceWrap.querySelector('#popup-sensor-date');
+      const timeEl = replaceWrap.querySelector('#popup-sensor-time');
+      if (!dateEl?.value || !timeEl?.value) return;
+      const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
       this._updateConfig('sensor_start_date', iso);
       const btn = replaceWrap.querySelector('#popup-sensor-confirm');
       btn.textContent = '✓  Saved!';
