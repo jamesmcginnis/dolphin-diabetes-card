@@ -1538,41 +1538,36 @@ class DolphinDiabetesCard extends HTMLElement {
   }
 
   async _saveConfigToLovelace(newConfig) {
+    const log = msg => console.log('[DolphinDiabetes]', msg);
     try {
       const hass = this._hass;
+      log('1. starting save, key=sensor_start_date val=' + newConfig.sensor_start_date);
 
-      // 1. Find which lovelace dashboard this card lives on.
-      //    Walk up the DOM to find the hui-root / lovelace element.
+      // Walk shadow DOM boundaries to find the lovelace element
       let lovelaceEl = null;
       let el = this;
       while (el) {
         if (el.lovelace) { lovelaceEl = el; break; }
         el = el.parentNode || (el.getRootNode && el.getRootNode().host) || null;
       }
-      const urlPath = lovelaceEl?.lovelace?.urlPath ?? null; // null = default dashboard
+      const urlPath = lovelaceEl?.lovelace?.urlPath ?? null;
+      log('2. urlPath=' + JSON.stringify(urlPath) + ' lovelaceEl=' + (lovelaceEl ? lovelaceEl.tagName : 'NOT FOUND'));
 
-      // 2. Fetch the current raw lovelace config.
-      const rawConfig = await hass.callWS({
-        type: 'lovelace/config',
-        url_path: urlPath,
-      });
+      const rawConfig = await hass.callWS({ type: 'lovelace/config', url_path: urlPath });
+      log('3. fetched lovelace config, views=' + (rawConfig?.views?.length ?? 'none'));
 
-      // 3. Find this card in the config and patch it in-place.
-      //    We match by walking every view → cards array looking for the
-      //    element whose resolved config matches our current _config type.
       const patched = JSON.parse(JSON.stringify(rawConfig));
       let found = false;
 
       const patchCard = (cardCfg) => {
         if (found) return cardCfg;
-        // Match on type + glucose entity — unique enough in practice.
+        log('   checking card type=' + cardCfg.type + ' glucose=' + cardCfg.glucose_entity);
         if (
           cardCfg.type === 'custom:dolphin-diabetes-card' &&
           cardCfg.glucose_entity === newConfig.glucose_entity
         ) {
           found = true;
-          // Merge the full new config over the stored card config so all
-          // keys (including sensor_start_date) are written to YAML.
+          log('4. matched card, merging config');
           return { ...cardCfg, ...newConfig };
         }
         return cardCfg;
@@ -1586,22 +1581,18 @@ class DolphinDiabetesCard extends HTMLElement {
       }
 
       if (!found) {
-        // Fallback: fire config-changed and hope the editor catches it.
+        log('ERROR: card not found in lovelace config — falling back to config-changed event');
         this.dispatchEvent(new CustomEvent('config-changed', {
           detail: { config: newConfig }, bubbles: true, composed: true,
         }));
         return;
       }
 
-      // 4. Save the patched config back.
-      await hass.callWS({
-        type: 'lovelace/config/save',
-        url_path: urlPath,
-        config: patched,
-      });
+      log('5. saving patched config back to lovelace...');
+      await hass.callWS({ type: 'lovelace/config/save', url_path: urlPath, config: patched });
+      log('6. DONE — config saved successfully');
     } catch (err) {
-      console.warn('[DolphinDiabetesCard] Could not persist config to lovelace:', err);
-      // Fallback so the value at least sticks for this session.
+      console.warn('[DolphinDiabetes] SAVE FAILED:', err);
       this.dispatchEvent(new CustomEvent('config-changed', {
         detail: { config: newConfig }, bubbles: true, composed: true,
       }));
