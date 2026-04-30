@@ -14,6 +14,8 @@ class DolphinDiabetesCard extends HTMLElement {
     this._popupHours = 3;
     this._predictionCache = null;      // { value, timestamp }
     this._predictionFetching = false;
+    this._a1cCache = null;             // { value, days, samples, timestamp }
+    this._a1cFetching = false;
   }
 
   static getConfigElement() {
@@ -48,6 +50,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF9500',
       sensor_pill_expired_color: '#FF3B30',
+      show_a1c: true,
     };
   }
 
@@ -77,6 +80,7 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_normal_color: '#34C759',
       sensor_pill_urgent_color: '#FF9500',
       sensor_pill_expired_color: '#FF3B30',
+      show_a1c: true,
       ...config
     };
     if (this.shadowRoot.innerHTML) {
@@ -917,6 +921,152 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.appendChild(disc);
   }
 
+  // ── Estimated A1C ─────────────────────────────────────────────────
+
+  async _fetchA1C() {
+    if (!this._config.glucose_entity || !this._hass) return null;
+    try {
+      const end   = new Date();
+      const start = new Date(end - 90 * 86400000);
+      const resp  = await this._hass.callApi('GET',
+        `history/period/${start.toISOString()}?filter_entity_id=${this._config.glucose_entity}&end_time=${end.toISOString()}&minimal_response=true&no_attributes=true`
+      );
+      const raw  = resp?.[0] || [];
+      const data = raw.filter(s => !isNaN(parseFloat(s.state)));
+      if (data.length < 2) return null;
+
+      // Convert all readings to mg/dL for the ADAG formula
+      const toMgdl = v => this._config.unit === 'mgdl' ? v : v * 18.0182;
+      const values = data.map(s => toMgdl(parseFloat(s.state)));
+      const avg    = values.reduce((a, b) => a + b, 0) / values.length;
+
+      // ADAG formula: eA1C (%) = (avg mg/dL + 46.7) / 28.7
+      const a1c = (avg + 46.7) / 28.7;
+
+      // How many distinct days are covered
+      const daySet = new Set(data.map(s => {
+        const d = new Date(s.last_changed || s.last_updated);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      }));
+
+      return { value: Math.round(a1c * 10) / 10, days: daySet.size, samples: data.length, avgMgdl: Math.round(avg) };
+    } catch {
+      return null;
+    }
+  }
+
+  _openA1cPopup() {
+    const cfg    = this._config;
+    const cache  = this._a1cCache;
+    const accent = cfg.accent_color || '#007AFF';
+
+    // Colour-code the A1C value using clinical ranges
+    const getA1cColor = v => {
+      if (v === null) return accent;
+      if (v >= 9.0)  return cfg.high_color  || '#FF3B30'; // very high
+      if (v >= 7.0)  return cfg.high_color  || '#FF9500'; // above target
+      if (v >= 5.7)  return cfg.normal_color || '#34C759'; // normal / pre-diabetic border
+      return cfg.normal_color || '#34C759';
+    };
+
+    const getA1cLabel = v => {
+      if (v === null) return 'No data';
+      if (v >= 9.0)  return 'Very High';
+      if (v >= 7.0)  return 'Above Target';
+      if (v >= 6.5)  return 'High';
+      if (v >= 5.7)  return 'Pre-diabetic range';
+      return 'Normal range';
+    };
+
+    const getA1cMessage = v => {
+      if (v === null) return 'Not enough glucose history to calculate yet. A1C estimation needs at least a few days of readings.';
+      if (v >= 9.0)  return 'This estimate suggests glucose levels have been running quite high on average. It's worth speaking with your healthcare team about your management plan.';
+      if (v >= 7.0)  return 'This estimate suggests there may be room to bring average glucose levels down a little. Your healthcare team can help you review your targets.';
+      if (v >= 6.5)  return 'This estimate sits in the high-normal range. Regular check-ins with your healthcare team are a good idea.';
+      if (v >= 5.7)  return 'This estimate sits in the pre-diabetic range. Staying consistent with healthy habits and monitoring is important.';
+      return 'This estimate suggests your average glucose has been in a healthy range. Keep it up!';
+    };
+
+    const val     = cache?.value ?? null;
+    const days    = cache?.days ?? 0;
+    const samples = cache?.samples ?? 0;
+    const avgMgdl = cache?.avgMgdl ?? null;
+    const color   = getA1cColor(val);
+    const label   = getA1cLabel(val);
+    const message = getA1cMessage(val);
+
+    // Data quality: how confident are we?
+    const qualityPct = Math.min(1, days / 90);
+    const qualityLabel = days >= 60 ? 'Good' : days >= 14 ? 'Fair' : days >= 3 ? 'Limited' : 'Very limited';
+    const qualityColor = days >= 60 ? (cfg.normal_color || '#34C759') : days >= 14 ? (cfg.high_color || '#FF9500') : (cfg.low_color || '#FF3B30');
+
+    const avgDisplay = avgMgdl !== null
+      ? (cfg.unit === 'mgdl' ? `${avgMgdl} mg/dL` : `${(avgMgdl / 18.0182).toFixed(1)} mmol/L`)
+      : '--';
+
+    const { popup } = this._makePopupShell('Estimated A1C');
+
+    // ── Hero ──
+    const hero = document.createElement('div');
+    hero.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+    hero.innerHTML = `
+      <div>
+        <div style="font-size:48px;font-weight:700;letter-spacing:-2px;line-height:1;color:${color};">${val !== null ? val + '%' : '--'}</div>
+        <div style="margin-top:6px;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.04em;background:${color}22;color:${color};border:1px solid ${color}44;">${label}</span>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.35);">Based on ${days} day${days !== 1 ? 's' : ''} of data</div>
+      </div>
+      <div style="flex-shrink:0;margin-left:12px;text-align:center;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:6px;">Data quality</div>
+        <div style="position:relative;width:60px;height:60px;margin:0 auto;">
+          <svg viewBox="0 0 88 88" width="60" height="60" style="position:absolute;top:0;left:0;">
+            <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+            <circle cx="44" cy="44" r="34" fill="none" stroke="${qualityColor}" stroke-width="5" stroke-linecap="round"
+              style="stroke-dasharray:${(2*Math.PI*34).toFixed(1)};stroke-dashoffset:${(2*Math.PI*34*(1-qualityPct)).toFixed(1)};transform:rotate(-90deg);transform-origin:44px 44px;"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <span style="font-size:9px;font-weight:700;color:${qualityColor};text-align:center;line-height:1.2;">${qualityLabel}</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">${days}/90 days</div>
+      </div>`;
+    popup.appendChild(hero);
+
+    // ── Divider ──
+    const div1 = document.createElement('div');
+    div1.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-bottom:14px;';
+    popup.appendChild(div1);
+
+    // ── Message card ──
+    const msgCard = document.createElement('div');
+    msgCard.style.cssText = `background:${color}12;border:1px solid ${color}30;border-radius:16px;padding:14px 16px;margin-bottom:14px;`;
+    msgCard.innerHTML = `<p style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.88);margin:0;">${message}</p>`;
+    popup.appendChild(msgCard);
+
+    // ── Info rows ──
+    const infoWrap = document.createElement('div');
+    const rows = [
+      { label: 'Estimated A1C',   value: val !== null ? val + '%' : '--' },
+      { label: 'Average glucose', value: avgDisplay },
+      { label: 'Readings used',   value: samples.toLocaleString() },
+      { label: 'Days of history', value: `${days} of 90` },
+    ];
+    rows.forEach(({ label, value }) => {
+      const row = document.createElement('div');
+      row.className = 'dg-info-row';
+      row.innerHTML = `<span class="dg-info-label">${label}</span><span class="dg-info-value">${value}</span>`;
+      infoWrap.appendChild(row);
+    });
+    popup.appendChild(infoWrap);
+
+    // ── Disclaimer ──
+    const disc = document.createElement('div');
+    disc.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);';
+    disc.innerHTML = `<p style="font-size:10px;line-height:1.5;color:rgba(255,255,255,0.25);margin:0;text-align:center;">This is a calculated estimate based on CGM readings, not a lab result. Always rely on your healthcare team for clinical decisions.</p>`;
+    popup.appendChild(disc);
+  }
+
   async _loadGraphInto(container, popupMode, hours) {
     if (!this._config.glucose_entity) return;
     const h = hours || this._config.graph_hours || 3;
@@ -1312,6 +1462,10 @@ class DolphinDiabetesCard extends HTMLElement {
                 <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
                 <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
               </div>
+              <div class="dg-sub-pill" id="dg-a1c-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-a1c-value">--</span>
+                <span class="dg-sub-pill-label">est. A1C</span>
+              </div>
             </div>
 
           </div>
@@ -1351,6 +1505,11 @@ class DolphinDiabetesCard extends HTMLElement {
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
     if (predictPillEl) {
       predictPillEl.addEventListener('click', e => { e.stopPropagation(); this._openPredictionPopup(); });
+    }
+
+    const a1cPillEl2 = this.shadowRoot.getElementById('dg-a1c-pill');
+    if (a1cPillEl2) {
+      a1cPillEl2.addEventListener('click', e => { e.stopPropagation(); this._openA1cPopup(); });
     }
 
     const graphInnerEl = this.shadowRoot.getElementById('dg-graph-inner');
@@ -1506,6 +1665,42 @@ class DolphinDiabetesCard extends HTMLElement {
       }
     } else if (predictPill) {
       predictPill.style.display = 'none';
+    }
+  }
+
+    // ── Estimated A1C pill ──────────────────────────────────────────────
+    const a1cPillEl = root.getElementById('dg-a1c-pill');
+    const a1cValEl  = root.getElementById('dg-a1c-value');
+    if (a1cPillEl) {
+      if (this._config.show_a1c && this._config.glucose_entity) {
+        a1cPillEl.style.display = 'flex';
+        const now2     = Date.now();
+        const cacheAge2 = this._a1cCache ? now2 - this._a1cCache.timestamp : Infinity;
+        const applyA1cUI = result => {
+          const val    = result?.value ?? null;
+          const color  = val === null ? 'rgba(255,255,255,0.4)'
+                       : val >= 7.0  ? (this._config.high_color  || '#FF9500')
+                       : (this._config.normal_color || '#34C759');
+          if (a1cValEl) { a1cValEl.textContent = val !== null ? val + '%' : '--'; a1cValEl.style.color = color; }
+          const lbl = a1cPillEl.querySelector('.dg-sub-pill-label');
+          a1cPillEl.style.background  = val !== null ? color + '1a' : 'rgba(255,255,255,0.06)';
+          a1cPillEl.style.borderColor = val !== null ? color + '55' : 'rgba(255,255,255,0.10)';
+          if (lbl) lbl.style.color = color;
+        };
+        // Cache for 30 minutes — A1C barely changes minute to minute
+        if (this._a1cCache && cacheAge2 < 1800000) {
+          applyA1cUI(this._a1cCache);
+        } else if (!this._a1cFetching) {
+          this._a1cFetching = true;
+          if (a1cValEl) a1cValEl.textContent = '…';
+          this._fetchA1C().then(result => {
+            this._a1cCache = result ? { ...result, timestamp: Date.now() } : null;
+            applyA1cUI(result);
+          }).finally(() => { this._a1cFetching = false; });
+        }
+      } else {
+        a1cPillEl.style.display = 'none';
+      }
     }
   }
 
@@ -1845,6 +2040,19 @@ class DolphinDiabetesCardEditor extends HTMLElement {
           </div>
         </div>
 
+        <div>
+          <div class="section-title">A1C Estimate</div>
+          <div class="card-block" style="padding:12px 16px;">
+            <label class="toggle-row">
+              <span class="toggle-label">Show estimated A1C pill</span>
+              <label class="toggle">
+                <input type="checkbox" id="show_a1c" ${cfg.show_a1c !== false ? 'checked' : ''}>
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
+        </div>
+
         <div id="sensor_life_section" style="${cfg.show_sensor_life ? '' : 'display:none'}">
           <div class="section-title">Sensor Life</div>
           <div class="card-block">
@@ -1994,6 +2202,8 @@ class DolphinDiabetesCardEditor extends HTMLElement {
       const s = root.getElementById('graph_hours_section');
       if (s) s.style.display = e.target.checked ? '' : 'none';
     };
+    get('show_a1c').onchange = e => this._updateConfig('show_a1c', e.target.checked);
+
     get('show_sensor_life').onchange = e => {
       this._updateConfig('show_sensor_life', e.target.checked);
       const s = root.getElementById('sensor_life_section');
