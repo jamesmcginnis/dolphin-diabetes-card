@@ -774,19 +774,14 @@ class DolphinDiabetesCard extends HTMLElement {
     });
     popup.appendChild(infoWrap);
 
-    // ── Replace Sensor button — opens shadow-root overlay ──
-    const replaceDivider = document.createElement('div');
-    replaceDivider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin-top:12px;margin-bottom:12px;';
-    popup.appendChild(replaceDivider);
+    // ── Replace Sensor button — same pattern as working close button ──
+    const replaceRow = document.createElement('div');
+    replaceRow.style.cssText = 'margin-top:12px;';
+    replaceRow.innerHTML = `<button class="dg-replace-btn" style="width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.01em;text-align:center;">⟳  Replace Sensor</button>`;
+    popup.appendChild(replaceRow);
 
-    const replaceBtn = document.createElement('button');
-    replaceBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.01em;text-align:center;`;
-    replaceBtn.textContent = '⟳  Replace Sensor';
-    popup.appendChild(replaceBtn);
-
-    replaceBtn.onclick = () => {
-      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      this._popupOverlay = null;
+    replaceRow.querySelector('.dg-replace-btn').addEventListener('click', () => {
+      this._closePopup();
       const now = new Date();
       const pad = n => n.toString().padStart(2, '0');
       const dateEl = this.shadowRoot.getElementById('dg-replace-date');
@@ -796,7 +791,7 @@ class DolphinDiabetesCard extends HTMLElement {
       if (timeEl) timeEl.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
       if (confirmEl) { confirmEl.textContent = '✓  Confirm New Sensor'; confirmEl.style.background = pillColor; }
       if (this._showReplacePanel) this._showReplacePanel();
-    };
+    });
   }
 
   // ── Prediction Popup ───────────────────────────────────────────────
