@@ -1315,7 +1315,7 @@ class DolphinDiabetesCard extends HTMLElement {
     const card = this.shadowRoot.getElementById('dg-card');
     if (!card) return;
 
-    card.addEventListener('click', () => this._openGraphPopup());
+    card.addEventListener('click', () => { const rv = this.shadowRoot.getElementById('dg-replace-view'); if (rv && rv.style.display !== 'none') return; this._openGraphPopup(); });
 
     const trendBlock = this.shadowRoot.getElementById('dg-trend-row');
     if (trendBlock) {
