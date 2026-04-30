@@ -1280,9 +1280,18 @@ class DolphinDiabetesCard extends HTMLElement {
                 <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
                 <span class="dg-sub-pill-label">30 min</span>
               </div>
-              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
-                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
-                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
+              <div style="position:relative;display:inline-flex;" id="dg-sensor-pill-wrap">
+                <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
+                  <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+                  <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
+                </div>
+                <button id="dg-replace-open-btn" style="display:none;position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.10);padding:0;cursor:pointer;align-items:center;justify-content:center;" title="Replace sensor">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 1.5A4.5 4.5 0 0 0 1.5 6" stroke="rgba(255,255,255,0.75)" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M6 10.5A4.5 4.5 0 0 0 10.5 6" stroke="rgba(255,255,255,0.75)" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M1.5 6 L0.2 4.2 M1.5 6 L3.2 4.5" stroke="rgba(255,255,255,0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -1292,10 +1301,6 @@ class DolphinDiabetesCard extends HTMLElement {
             <div class="dg-graph-inner" id="dg-graph-inner">
               <div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.2);font-size:11px;">Loading…</div>
             </div>
-          </div>
-
-          <div id="dg-replace-btn-wrap" style="display:none;margin-top:10px;padding:0 4px 4px;">
-            <button id="dg-replace-open-btn" style="width:100%;padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;font-family:inherit;">⟳ Replace Sensor</button>
           </div>
 
         </div>
@@ -1339,7 +1344,6 @@ class DolphinDiabetesCard extends HTMLElement {
     // ── Replace sensor view ──────────────────────────────────────────
     const cardInner      = this.shadowRoot.querySelector('.dg-inner');
     const replaceView    = this.shadowRoot.getElementById('dg-replace-view');
-    const replaceBtnWrap = this.shadowRoot.getElementById('dg-replace-btn-wrap');
     const replaceOpenBtn = this.shadowRoot.getElementById('dg-replace-open-btn');
     const replaceConfirm = this.shadowRoot.getElementById('dg-replace-confirm');
     const replaceCancel  = this.shadowRoot.getElementById('dg-replace-cancel');
@@ -1528,9 +1532,9 @@ class DolphinDiabetesCard extends HTMLElement {
       } else {
         sensorPillEl.style.display = 'none';
       }
-      // Show/hide the replace button along with the pill
-      const replaceBtnWrapEl = root.getElementById('dg-replace-btn-wrap');
-      if (replaceBtnWrapEl) replaceBtnWrapEl.style.display = showPill ? 'block' : 'none';
+      // Show/hide the replace badge icon along with the pill
+      const replaceBadgeEl = root.getElementById('dg-replace-open-btn');
+      if (replaceBadgeEl) replaceBadgeEl.style.display = showPill ? 'flex' : 'none';
     }
 
     if (this._config.show_graph) {
