@@ -1395,7 +1395,7 @@ class DolphinDiabetesCard extends HTMLElement {
         }
         .dg-sub-pill {
           display: flex; flex-direction: column; align-items: center;
-          padding: 8px 20px; border-radius: 14px; width: auto;
+          padding: 8px 12px; border-radius: 14px; width: 100%; box-sizing: border-box;
           transition: background 0.4s, color 0.4s, border-color 0.4s;
           border: 1px solid rgba(255,255,255,0.10);
           cursor: pointer;
@@ -1458,13 +1458,13 @@ class DolphinDiabetesCard extends HTMLElement {
                 <span class="dg-sub-pill-value" id="dg-predict-value">--</span>
                 <span class="dg-sub-pill-label">30 min</span>
               </div>
-              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
-                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
-                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
-              </div>
               <div class="dg-sub-pill" id="dg-a1c-pill" style="display:none;">
                 <span class="dg-sub-pill-value" id="dg-a1c-value">--</span>
                 <span class="dg-sub-pill-label">est. A1C</span>
+              </div>
+              <div class="dg-sub-pill" id="dg-sensor-pill" style="display:none;">
+                <span class="dg-sub-pill-value" id="dg-sensor-value">--</span>
+                <span class="dg-sub-pill-label" id="dg-sensor-label">days left</span>
               </div>
             </div>
 
@@ -2034,20 +2034,16 @@ class DolphinDiabetesCardEditor extends HTMLElement {
                   <input type="checkbox" id="show_sensor_life" ${cfg.show_sensor_life ? 'checked' : ''}><span class="toggle-track"></span>
                 </label>
               </div>
+              <div class="toggle-item">
+                <div>
+                  <div class="toggle-label">Show Estimated A1C</div>
+                  <div class="toggle-sublabel">Calculated from CGM history — tap pill for details</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="show_a1c" ${cfg.show_a1c !== false ? 'checked' : ''}><span class="toggle-track"></span>
+                </label>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="section-title">A1C Estimate</div>
-          <div class="card-block" style="padding:12px 16px;">
-            <label class="toggle-row">
-              <span class="toggle-label">Show estimated A1C pill</span>
-              <label class="toggle">
-                <input type="checkbox" id="show_a1c" ${cfg.show_a1c !== false ? 'checked' : ''}>
-                <span class="slider"></span>
-              </label>
-            </label>
           </div>
         </div>
 
