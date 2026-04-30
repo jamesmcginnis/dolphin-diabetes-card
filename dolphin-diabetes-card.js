@@ -715,7 +715,7 @@ class DolphinDiabetesCard extends HTMLElement {
     else if (daysLeft === 1) { statusText = '1 day';                  statusSub = `${hoursLeft}h remaining`; statusBadge = 'Replace Soon'; }
     else                     { statusText = `${daysLeft} days`;       statusSub = `${hoursLeft}h remaining`; statusBadge = 'Active'; }
 
-    const { popup } = this._makePopupShell('Sensor Life');
+    const { popup, overlay } = this._makePopupShell('Sensor Life');
 
     const heroRow = document.createElement('div');
     heroRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
@@ -820,21 +820,33 @@ class DolphinDiabetesCard extends HTMLElement {
     replaceWrap.appendChild(inputRowDiv);
 
     const confirmBtn = document.createElement('button');
-    confirmBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;`;
+    confirmBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;touch-action:manipulation;`;
     confirmBtn.innerHTML = '✓ &nbsp;Confirm New Sensor';
     replaceWrap.appendChild(confirmBtn);
 
     popup.appendChild(replaceWrap);
 
-    confirmBtn.addEventListener('click', () => {
-      if (!dateEl.value || !timeEl.value) return;
-      const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
+    let confirmed = false;
+    const doConfirm = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirmed) return;
+      const dateVal = dateEl.value;
+      const timeVal = timeEl.value;
+      if (!dateVal || !timeVal) return;
+      confirmed = true;
+      const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
       this._updateConfig('sensor_start_date', iso);
       confirmBtn.textContent = '✓  Saved!';
       confirmBtn.style.opacity = '0.7';
       confirmBtn.style.cursor = 'default';
-      setTimeout(() => this._closePopup(), 1200);
-    });
+      setTimeout(() => {
+        if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this._popupOverlay = null;
+      }, 1200);
+    };
+    confirmBtn.addEventListener('click', doConfirm);
+    confirmBtn.addEventListener('touchend', doConfirm);
   }
 
   // ── Prediction Popup ───────────────────────────────────────────────
