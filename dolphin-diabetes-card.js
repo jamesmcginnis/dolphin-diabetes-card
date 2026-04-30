@@ -790,37 +790,50 @@ class DolphinDiabetesCard extends HTMLElement {
 
     const replaceWrap = document.createElement('div');
     replaceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;align-items:center;';
-    replaceWrap.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-        <label style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;">New sensor start time</label>
-        <div style="display:flex;gap:8px;width:100%;">
-          <input id="popup-sensor-date" type="date" value="${nowLocal.slice(0,10)}"
-            style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-          <input id="popup-sensor-time" type="time" value="${nowLocal.slice(11,16)}"
-            style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-        </div>
-      </div>
-      <button id="popup-sensor-confirm"
-        style="width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;">
-        ✓ &nbsp;Confirm New Sensor
-      </button>`;
+
+    const inputRowDiv = document.createElement('div');
+    inputRowDiv.style.cssText = 'display:flex;flex-direction:column;gap:6px;width:100%;';
+
+    const inputLabel = document.createElement('label');
+    inputLabel.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;';
+    inputLabel.textContent = 'New sensor start time';
+    inputRowDiv.appendChild(inputLabel);
+
+    const pairDiv = document.createElement('div');
+    pairDiv.style.cssText = 'display:flex;gap:8px;width:100%;';
+
+    const inputStyle = 'flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;';
+
+    const dateEl = document.createElement('input');
+    dateEl.type = 'date';
+    dateEl.style.cssText = inputStyle;
+    dateEl.value = nowLocal.slice(0, 10);
+
+    const timeEl = document.createElement('input');
+    timeEl.type = 'time';
+    timeEl.style.cssText = inputStyle;
+    timeEl.value = nowLocal.slice(11, 16);
+
+    pairDiv.appendChild(dateEl);
+    pairDiv.appendChild(timeEl);
+    inputRowDiv.appendChild(pairDiv);
+    replaceWrap.appendChild(inputRowDiv);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.style.cssText = `width:100%;padding:12px;border-radius:14px;border:none;background:${pillColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s;letter-spacing:0.01em;text-align:center;`;
+    confirmBtn.innerHTML = '✓ &nbsp;Confirm New Sensor';
+    replaceWrap.appendChild(confirmBtn);
+
     popup.appendChild(replaceWrap);
 
-    replaceWrap.querySelector('#popup-sensor-confirm').addEventListener('click', () => {
-      const dateEl = replaceWrap.querySelector('#popup-sensor-date');
-      const timeEl = replaceWrap.querySelector('#popup-sensor-time');
-      if (!dateEl?.value || !timeEl?.value) return;
+    confirmBtn.addEventListener('click', () => {
+      if (!dateEl.value || !timeEl.value) return;
       const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
       this._updateConfig('sensor_start_date', iso);
-      const btn = replaceWrap.querySelector('#popup-sensor-confirm');
-      btn.textContent = '✓  Saved!';
-      btn.style.opacity = '0.7';
-      btn.style.cursor = 'default';
-      setTimeout(() => {
-        btn.innerHTML = '✓ &nbsp;Confirm New Sensor';
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-      }, 2000);
+      confirmBtn.textContent = '✓  Saved!';
+      confirmBtn.style.opacity = '0.7';
+      confirmBtn.style.cursor = 'default';
+      setTimeout(() => this._closePopup(), 1200);
     });
   }
 
