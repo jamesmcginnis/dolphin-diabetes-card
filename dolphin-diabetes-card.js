@@ -79,7 +79,16 @@ class DolphinDiabetesCard extends HTMLElement {
       sensor_pill_expired_color: '#FF3B30',
       ...config
     };
-    if (this.shadowRoot.innerHTML) this._render();
+    if (this.shadowRoot.innerHTML) {
+      // Don't wipe the DOM while the replace-sensor panel is open; just update
+      // the card data in the background.
+      const rv = this.shadowRoot.getElementById('dg-replace-view');
+      if (rv && rv.style.display !== 'none') {
+        this._predictionCache = null;
+        return;
+      }
+      this._render();
+    }
     this._predictionCache = null; // invalidate on config change
   }
 
@@ -1367,9 +1376,24 @@ class DolphinDiabetesCard extends HTMLElement {
         const dateVal = (dateEl && dateEl.value) ? dateEl.value : `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
         const timeVal = (timeEl && timeEl.value) ? timeEl.value : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
-        this._updateConfig('sensor_start_date', iso);
-        replaceConfirm.textContent = '✓  Saved!';
-        setTimeout(() => { hideReplace(); this._updateCard(); }, 1000);
+        // Snapshot the button reference before any re-render can destroy it
+        const btn = replaceConfirm;
+        btn.textContent = '✓  Saved!';
+        btn.disabled = true;
+        // Defer config update until after the success feedback so the
+        // config-changed event (which triggers setConfig → _render) does not
+        // wipe the DOM while the user is still looking at the confirmation.
+        setTimeout(() => {
+          this._updateConfig('sensor_start_date', iso);
+          // hideReplace / _updateCard are called after _render re-runs via
+          // setConfig, so we only need to ensure the panel is hidden.
+          // If _render already ran the view is gone; if not, hide it now.
+          const rv = this.shadowRoot.getElementById('dg-replace-view');
+          const ci = this.shadowRoot.querySelector('.dg-inner');
+          if (rv) rv.style.display = 'none';
+          if (ci) ci.style.display = '';
+          this._updateCard();
+        }, 1000);
       });
     }
     if (replaceView) {
