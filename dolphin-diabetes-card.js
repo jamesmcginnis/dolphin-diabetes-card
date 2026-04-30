@@ -1347,7 +1347,9 @@ class DolphinDiabetesCard extends HTMLElement {
     const hideReplace = () => { if (replacePanel) replacePanel.style.display = 'none'; if (cardInner) cardInner.style.display = ''; };
     this._showReplacePanel = showReplace;
     if (replaceConfirm) {
-      replaceConfirm.onclick = () => {
+      replaceConfirm.addEventListener('click', (e) => {
+        e.stopPropagation();
+        replaceConfirm.textContent = 'CLICKED';
         const dateEl = this.shadowRoot.getElementById('dg-replace-date');
         const timeEl = this.shadowRoot.getElementById('dg-replace-time');
         const now = new Date();
@@ -1358,7 +1360,7 @@ class DolphinDiabetesCard extends HTMLElement {
         this._updateConfig('sensor_start_date', iso);
         replaceConfirm.textContent = '✓  Saved!';
         setTimeout(() => hideReplace(), 1000);
-      };
+      });
     }
     if (replaceCancel) {
       replaceCancel.onclick = () => hideReplace();
