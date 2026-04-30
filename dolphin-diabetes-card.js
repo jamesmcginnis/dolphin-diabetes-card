@@ -785,44 +785,6 @@ class DolphinDiabetesCard extends HTMLElement {
     });
     popup.appendChild(infoWrap);
 
-    // ── Replace Sensor section ──
-    const replaceDivider = document.createElement('div');
-    replaceDivider.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin:16px 0 14px;';
-    popup.appendChild(replaceDivider);
-
-    const now = new Date();
-    const pad = n => n.toString().padStart(2, '0');
-    const todayDate = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-    const todayTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    const replaceSection = document.createElement('div');
-    replaceSection.innerHTML = `
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px;">Replace Sensor</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <input id="dg-popup-replace-date" type="date" value="${todayDate}" style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px 8px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-        <input id="dg-popup-replace-time" type="time" value="${todayTime}" style="flex:1;min-width:0;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:9px 8px;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-      </div>
-      <button id="dg-popup-replace-confirm" style="width:100%;padding:11px;border-radius:12px;border:none;background:${pillColor};color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">⟳  Replace Sensor</button>`;
-    popup.appendChild(replaceSection);
-
-    const confirmBtn = replaceSection.querySelector('#dg-popup-replace-confirm');
-    confirmBtn.addEventListener('click', () => {
-      console.log('[DolphinDiabetes] Replace Sensor button clicked');
-      const dateEl = replaceSection.querySelector('#dg-popup-replace-date');
-      const timeEl = replaceSection.querySelector('#dg-popup-replace-time');
-      const dateVal = (dateEl && dateEl.value) ? dateEl.value : todayDate;
-      const timeVal = (timeEl && timeEl.value) ? timeEl.value : todayTime;
-      const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
-      console.log('[DolphinDiabetes] Saving iso:', iso);
-      confirmBtn.textContent = '✓  Saved!';
-      confirmBtn.disabled = true;
-      setTimeout(() => {
-        console.log('[DolphinDiabetes] setTimeout fired, calling _updateConfig');
-        this._updateConfig('sensor_start_date', iso);
-        this._closePopup();
-        this._updateCard();
-      }, 900);
-    });
   }
 
   // ── Prediction Popup ───────────────────────────────────────────────
@@ -1529,81 +1491,6 @@ class DolphinDiabetesCard extends HTMLElement {
     const entityId = this._config.glucose_entity;
     if (!entityId) return;
     this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId } }));
-  }
-
-  // ── Config persistence ────────────────────────────────────────────
-  // Called from the Replace Sensor panel to write sensor_start_date back
-  // to the lovelace config (YAML / storage).
-  _updateConfig(key, value) {
-    if (!this._config || !this._hass) return;
-    const newConfig = { ...this._config, [key]: value };
-    this._config = newConfig;
-    // Persist directly to lovelace storage via the WS API so the value
-    // survives a page refresh. config-changed alone is only honoured by
-    // the editor flow, not from a runtime card element.
-    this._saveConfigToLovelace(newConfig);
-  }
-
-  async _saveConfigToLovelace(newConfig) {
-    const log = msg => console.log('[DolphinDiabetes]', msg);
-    try {
-      const hass = this._hass;
-      log('1. starting save, key=sensor_start_date val=' + newConfig.sensor_start_date);
-
-      // Walk shadow DOM boundaries to find the lovelace element
-      let lovelaceEl = null;
-      let el = this;
-      while (el) {
-        if (el.lovelace) { lovelaceEl = el; break; }
-        el = el.parentNode || (el.getRootNode && el.getRootNode().host) || null;
-      }
-      const urlPath = lovelaceEl?.lovelace?.urlPath ?? null;
-      log('2. urlPath=' + JSON.stringify(urlPath) + ' lovelaceEl=' + (lovelaceEl ? lovelaceEl.tagName : 'NOT FOUND'));
-
-      const rawConfig = await hass.callWS({ type: 'lovelace/config', url_path: urlPath });
-      log('3. fetched lovelace config, views=' + (rawConfig?.views?.length ?? 'none'));
-
-      const patched = JSON.parse(JSON.stringify(rawConfig));
-      let found = false;
-
-      const patchCard = (cardCfg) => {
-        if (found) return cardCfg;
-        log('   checking card type=' + cardCfg.type + ' glucose=' + cardCfg.glucose_entity);
-        if (
-          cardCfg.type === 'custom:dolphin-diabetes-card' &&
-          cardCfg.glucose_entity === newConfig.glucose_entity
-        ) {
-          found = true;
-          log('4. matched card, merging config');
-          return { ...cardCfg, ...newConfig };
-        }
-        return cardCfg;
-      };
-
-      for (const view of (patched.views || [])) {
-        if (view.cards) view.cards = view.cards.map(patchCard);
-        for (const section of (view.sections || [])) {
-          if (section.cards) section.cards = section.cards.map(patchCard);
-        }
-      }
-
-      if (!found) {
-        log('ERROR: card not found in lovelace config — falling back to config-changed event');
-        this.dispatchEvent(new CustomEvent('config-changed', {
-          detail: { config: newConfig }, bubbles: true, composed: true,
-        }));
-        return;
-      }
-
-      log('5. saving patched config back to lovelace...');
-      await hass.callWS({ type: 'lovelace/config/save', url_path: urlPath, config: patched });
-      log('6. DONE — config saved successfully');
-    } catch (err) {
-      console.warn('[DolphinDiabetes] SAVE FAILED:', err);
-      this.dispatchEvent(new CustomEvent('config-changed', {
-        detail: { config: newConfig }, bubbles: true, composed: true,
-      }));
-    }
   }
 
   // ── Update ─────────────────────────────────────────────────────────
