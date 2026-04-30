@@ -1731,6 +1731,7 @@ class DolphinDiabetesCardEditor extends HTMLElement {
     setChk('show_graph',       cfg.show_graph       !== false);
     setChk('show_title',       cfg.show_title       !== false);
     setChk('show_sensor_life', cfg.show_sensor_life === true);
+    setChk('show_a1c',         cfg.show_a1c         !== false);
 
     root.querySelectorAll('input[name="unit"]').forEach(r => { r.checked = r.value === (cfg.unit || 'mmol'); });
     root.querySelectorAll('input[name="graph_hours"]').forEach(r => { r.checked = parseInt(r.value) === parseInt(cfg.graph_hours || 3); });
