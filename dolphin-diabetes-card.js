@@ -1350,8 +1350,11 @@ class DolphinDiabetesCard extends HTMLElement {
       replaceConfirm.onclick = () => {
         const dateEl = this.shadowRoot.getElementById('dg-replace-date');
         const timeEl = this.shadowRoot.getElementById('dg-replace-time');
-        if (!dateEl.value || !timeEl.value) return;
-        const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
+        const now = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const dateVal = (dateEl && dateEl.value) ? dateEl.value : `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+        const timeVal = (timeEl && timeEl.value) ? timeEl.value : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
         this._updateConfig('sensor_start_date', iso);
         replaceConfirm.textContent = '✓  Saved!';
         setTimeout(() => hideReplace(), 1000);
