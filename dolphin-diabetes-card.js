@@ -1358,7 +1358,10 @@ class DolphinDiabetesCard extends HTMLElement {
         const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
         this._updateConfig('sensor_start_date', iso);
         replaceConfirm.textContent = '✓  Saved!';
-        setTimeout(() => hideReplace(), 1000);
+        setTimeout(() => {
+          hideReplace();
+          this._updateCard();
+        }, 1000);
       });
     }
     if (replaceCancel) {
