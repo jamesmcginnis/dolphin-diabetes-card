@@ -785,11 +785,8 @@ class DolphinDiabetesCard extends HTMLElement {
     popup.appendChild(replaceBtn);
 
     replaceBtn.onclick = () => {
-      // Close the info popup
       if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
       this._popupOverlay = null;
-
-      // Pre-fill date/time inputs with now
       const now = new Date();
       const pad = n => n.toString().padStart(2, '0');
       const dateEl = this.shadowRoot.getElementById('dg-replace-date');
@@ -797,14 +794,8 @@ class DolphinDiabetesCard extends HTMLElement {
       const confirmEl = this.shadowRoot.getElementById('dg-replace-confirm');
       if (dateEl) dateEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
       if (timeEl) timeEl.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      if (confirmEl) confirmEl.textContent = '✓  Confirm New Sensor';
-
-      // Update confirm button color to match pill
-      if (confirmEl) confirmEl.style.background = pillColor;
-
-      // Show the overlay
-      const replaceOverlay = this.shadowRoot.getElementById('dg-replace-overlay');
-      if (replaceOverlay) replaceOverlay.style.display = 'flex';
+      if (confirmEl) { confirmEl.textContent = '✓  Confirm New Sensor'; confirmEl.style.background = pillColor; }
+      if (this._showReplacePanel) this._showReplacePanel();
     };
   }
 
@@ -1319,17 +1310,15 @@ class DolphinDiabetesCard extends HTMLElement {
         </div>
       </ha-card>
 
-      <div id="dg-replace-overlay" style="display:none;position:fixed;inset:0;z-index:99999;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">
-        <div id="dg-replace-panel" style="background:#1c1c1e;border:1px solid rgba(255,255,255,0.15);border-radius:24px;padding:24px;width:100%;max-width:340px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;color:#fff;">
-          <div style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:16px;text-align:center;">Replace Sensor</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;margin-bottom:8px;">New sensor start time</div>
-          <div style="display:flex;gap:8px;margin-bottom:16px;">
-            <input id="dg-replace-date" type="date" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-            <input id="dg-replace-time" type="time" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
-          </div>
-          <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">✓  Confirm New Sensor</button>
-          <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+      <div id="dg-replace-panel" style="display:none;padding:20px;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:16px;text-align:center;">Replace Sensor</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.45);font-weight:500;text-align:center;margin-bottom:8px;">New sensor start time</div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <input id="dg-replace-date" type="date" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
+          <input id="dg-replace-time" type="time" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
         </div>
+        <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">✓  Confirm New Sensor</button>
+        <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
       </div>`;
 
     this._setupInteractions();
@@ -1355,12 +1344,14 @@ class DolphinDiabetesCard extends HTMLElement {
     }
 
     // Replace overlay (lives inside shadow root so clicks are never intercepted)
-    const replaceOverlay = this.shadowRoot.getElementById('dg-replace-overlay');
+    const replacePanel  = this.shadowRoot.getElementById('dg-replace-panel');
+    const cardInner     = this.shadowRoot.querySelector('.dg-inner');
     const replaceConfirm = this.shadowRoot.getElementById('dg-replace-confirm');
     const replaceCancel  = this.shadowRoot.getElementById('dg-replace-cancel');
-    if (replaceOverlay && replaceConfirm && replaceCancel) {
-      replaceCancel.onclick = () => { replaceOverlay.style.display = 'none'; };
-      replaceOverlay.onclick = (e) => { if (e.target === replaceOverlay) replaceOverlay.style.display = 'none'; };
+    const showReplace = () => { if (cardInner) cardInner.style.display = 'none'; if (replacePanel) replacePanel.style.display = 'block'; };
+    const hideReplace = () => { if (replacePanel) replacePanel.style.display = 'none'; if (cardInner) cardInner.style.display = ''; };
+    this._showReplacePanel = showReplace;
+    if (replaceConfirm) {
       replaceConfirm.onclick = () => {
         const dateEl = this.shadowRoot.getElementById('dg-replace-date');
         const timeEl = this.shadowRoot.getElementById('dg-replace-time');
@@ -1368,8 +1359,11 @@ class DolphinDiabetesCard extends HTMLElement {
         const iso = new Date(`${dateEl.value}T${timeEl.value}`).toISOString();
         this._updateConfig('sensor_start_date', iso);
         replaceConfirm.textContent = '✓  Saved!';
-        setTimeout(() => { replaceOverlay.style.display = 'none'; }, 1000);
+        setTimeout(() => hideReplace(), 1000);
       };
+    }
+    if (replaceCancel) {
+      replaceCancel.onclick = () => hideReplace();
     }
 
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
