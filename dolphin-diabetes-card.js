@@ -1,6 +1,7 @@
 /**
  * Dolphin Diabetes Card
  * Displays current blood sugar level, trend, and optional graph.
+ * v2
  */
 
 class DolphinDiabetesCard extends HTMLElement {
@@ -1349,19 +1350,7 @@ class DolphinDiabetesCard extends HTMLElement {
     if (replaceConfirm) {
       replaceConfirm.addEventListener('click', (e) => {
         e.stopPropagation();
-        const dateEl = this.shadowRoot.getElementById('dg-replace-date');
-        const timeEl = this.shadowRoot.getElementById('dg-replace-time');
-        const now = new Date();
-        const pad = n => n.toString().padStart(2, '0');
-        const dateVal = (dateEl && dateEl.value) ? dateEl.value : `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-        const timeVal = (timeEl && timeEl.value) ? timeEl.value : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        const iso = new Date(`${dateVal}T${timeVal}`).toISOString();
-        this._updateConfig('sensor_start_date', iso);
-        replaceConfirm.textContent = '✓  Saved!';
-        setTimeout(() => {
-          hideReplace();
-          this._updateCard();
-        }, 1000);
+        alert('confirm clicked');
       });
     }
     if (replaceCancel) {
