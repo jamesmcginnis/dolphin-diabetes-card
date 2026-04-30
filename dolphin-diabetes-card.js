@@ -1346,6 +1346,10 @@ class DolphinDiabetesCard extends HTMLElement {
     const showReplace = () => { if (cardInner) cardInner.style.display = 'none'; if (replacePanel) replacePanel.style.display = 'block'; };
     const hideReplace = () => { if (replacePanel) replacePanel.style.display = 'none'; if (cardInner) cardInner.style.display = ''; };
     this._showReplacePanel = showReplace;
+
+    // Block ALL clicks in the panel from reaching the card-level handler
+    if (replacePanel) replacePanel.addEventListener('click', e => e.stopPropagation());
+
     if (replaceConfirm) {
       replaceConfirm.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1365,7 +1369,7 @@ class DolphinDiabetesCard extends HTMLElement {
       });
     }
     if (replaceCancel) {
-      replaceCancel.onclick = () => hideReplace();
+      replaceCancel.addEventListener('click', e => { e.stopPropagation(); hideReplace(); });
     }
 
     const predictPillEl = this.shadowRoot.getElementById('dg-predict-pill');
