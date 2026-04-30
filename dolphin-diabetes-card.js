@@ -1312,8 +1312,8 @@ class DolphinDiabetesCard extends HTMLElement {
           <input id="dg-replace-date" type="date" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
           <input id="dg-replace-time" type="time" style="flex:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 8px;color:#fff;font-size:13px;font-family:inherit;box-sizing:border-box;color-scheme:dark;outline:none;text-align:center;">
         </div>
-        <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">✓  Confirm New Sensor</button>
-        <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+        <button id="dg-replace-cancel" style="width:100%;padding:11px;border-radius:14px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:10px;">Cancel</button>
+        <button id="dg-replace-confirm" style="width:100%;padding:13px;border-radius:14px;border:none;background:#34C759;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">✓  Confirm New Sensor</button>
       </div>`;
 
     this._setupInteractions();
